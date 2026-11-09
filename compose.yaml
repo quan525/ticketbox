@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ticketbox}
+      POSTGRES_USER: ${POSTGRES_USER:-ticketbox}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ticketbox}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-ticketbox}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-1800000}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+      SQL_INIT_MODE: ${SQL_INIT_MODE:-never}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8080/api/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  seed:
+    profiles: ["seed"]
+    image: postgres:17-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGUSER: ${POSTGRES_USER:-ticketbox}
+      PGDATABASE: ${POSTGRES_DB:-ticketbox}
+    volumes:
+      - ./src/main/resources/data.sql:/seed.sql:ro
+    command: ["psql", "-h", "postgres", "-f", "/seed.sql"]
+
+volumes:
+  postgres-data:

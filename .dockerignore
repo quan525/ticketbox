@@ -1,0 +1,10 @@
+.git
+.gradle
+.idea
+build
+.env
+*.iml
+.tools
+.local
+frontend/node_modules
+frontend/dist

@@ -1,0 +1,24 @@
+databases:
+  - name: ticketbox-db
+    databaseName: ticketbox
+    user: ticketbox
+    plan: free
+
+services:
+  - type: web
+    name: ticketbox
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/actuator/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ticketbox-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SQL_INIT_MODE
+        value: always
+      - key: JPA_DDL_AUTO
+        value: update
