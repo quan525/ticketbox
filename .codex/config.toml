@@ -1,0 +1,49 @@
+# Project-specific file protections. Managed app policy must allow/select this profile.
+default_permissions = "ticketbox-private"
+
+[permissions.ticketbox-private]
+extends = ":workspace"
+description = "Ticketbox source editing without environment files, keys, or local credential data."
+
+[permissions.ticketbox-private.filesystem]
+":root" = "deny"
+":minimal" = "read"
+glob_scan_max_depth = 8
+
+[permissions.ticketbox-private.filesystem.":workspace_roots"]
+".env" = "deny"
+".env.local" = "deny"
+".env.development" = "deny"
+".env.production" = "deny"
+".env.test" = "deny"
+".env.sepay" = "deny"
+".env.example" = "deny"
+".env.*" = "deny"
+"**/.env" = "deny"
+"**/.env.*" = "deny"
+"**/*.env" = "deny"
+"**/*.env.*" = "deny"
+"**/*.pem" = "deny"
+"**/*.key" = "deny"
+"**/*.p12" = "deny"
+"**/*.pfx" = "deny"
+"**/*.jks" = "deny"
+"**/*.keystore" = "deny"
+"secrets" = "deny"
+".secrets" = "deny"
+".ssh" = "deny"
+".aws" = "deny"
+"**/secrets/**" = "deny"
+"**/.secrets/**" = "deny"
+"**/.ssh/**" = "deny"
+"**/.aws/**" = "deny"
+".local/ticketbox.mv.db" = "deny"
+".local/seed-users.sql" = "deny"
+".local/SeedUsers.java" = "deny"
+"**/*.mv.db" = "deny"
+"**/*.trace.db" = "deny"
+"**/*.dump" = "deny"
+"**/*.backup" = "deny"
+
+[permissions.ticketbox-private.network]
+enabled = false

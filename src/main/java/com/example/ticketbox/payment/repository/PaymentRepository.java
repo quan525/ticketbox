@@ -28,5 +28,7 @@ public interface PaymentRepository extends JpaRepository<Payments, Long>{
 
     boolean existsByBookingIdAndStatusIn(Long bookingId, Collection<com.example.ticketbox.enums.PaymentStatus> statuses);
 
+    java.util.Optional<Payments> findBySepayReference(String reference);
+
     boolean existsByTransactionId(String transactionId);
 }

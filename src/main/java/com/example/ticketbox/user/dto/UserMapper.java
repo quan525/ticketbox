@@ -26,7 +26,7 @@ public interface UserMapper {
             @MappingTarget Users user
     );
 
-    UserDetailResponse toResponse(Users user);
+    default UserDetailResponse toResponse(Users user) { return UserDetailResponse.from(user); }
 
     List<UserDetailResponse> toDetailResponses(List<Users> users);
 }

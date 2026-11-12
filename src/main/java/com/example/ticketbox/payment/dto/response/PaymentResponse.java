@@ -16,6 +16,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class PaymentResponse {
     private Long id;
+    private String checkoutProvider;
+    private String sepayReference;
     private Long bookingId;
     private PaymentStatus status;
     private PaymentMethods method;

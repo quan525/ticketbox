@@ -14,19 +14,44 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     build: .
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
+      TICKETBOX_REDIS_URL: redis://redis:6379
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ticketbox}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-ticketbox}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-1800000}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      MOCK_PAYMENTS_ENABLED: ${MOCK_PAYMENTS_ENABLED:-false}
+      SEPAY_ENABLED: ${SEPAY_ENABLED:-false}
+      SEPAY_MODE: ${SEPAY_MODE:-TEST}
+      SEPAY_AUTH: ${SEPAY_AUTH:-HMAC}
+      SEPAY_WEBHOOK_SECRET: ${SEPAY_WEBHOOK_SECRET:-}
+      SEPAY_BANK: ${SEPAY_BANK:-}
+      SEPAY_GATEWAY: ${SEPAY_GATEWAY:-}
+      SEPAY_ACCOUNT_NUMBER: ${SEPAY_ACCOUNT_NUMBER:-}
+      SEPAY_ACCOUNT_NAME: ${SEPAY_ACCOUNT_NAME:-}
+      SEPAY_SUB_ACCOUNT: ${SEPAY_SUB_ACCOUNT:-}
       JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
       SQL_INIT_MODE: ${SQL_INIT_MODE:-never}
     ports:
@@ -53,4 +78,5 @@ services:
     command: ["psql", "-h", "postgres", "-f", "/seed.sql"]
 
 volumes:
+  redis-data:
   postgres-data:

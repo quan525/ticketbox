@@ -31,6 +31,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
+        if ("/payments/sepay/webhook".equals(request.getServletPath()) && "POST".equals(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
         final String authHeader = request.getHeader("Authorization");
 
         String token = null;

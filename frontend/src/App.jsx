@@ -1,7 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ArrowRight, ArrowUpRight, Bookmark, CalendarDays, Check, ChevronDown, CircleHelp, Clapperboard, Clock3, Film, LogOut, MapPin, Search, ShieldCheck, Sparkles, Ticket, UserRound, X } from 'lucide-react';
-import { request, readSession, saveSession } from './api.js';
+import { useState, useEffect, useCallback, useMemo, useId } from 'react';
+import { ArrowRight, ArrowUpRight, Bookmark, CalendarDays, Check, ChevronDown, CircleHelp, Clapperboard, Clock3, Eye, EyeOff, Film, LogOut, MapPin, Search, ShieldCheck, Sparkles, Ticket, UserRound, X } from 'lucide-react';
+import { request, readSession, revokeSession, saveSession, updateSessionUser } from './api.js';
 import GoogleSignIn from './GoogleSignIn.jsx';
+import PaymentCheckout from './PaymentCheckout.jsx';
+import AdminWorkspace from './AdminWorkspace.jsx';
+import { isOperator, isDemoPayment } from './adminModel.js';
 import { dateKey, dayLabel, filterMovies, groupSeats, money, seatLabel, secondsRemaining, selectionTotal, time, upcomingShows } from './model.js';
 import { BookingCard, Dialog, MovieCard, Poster, SeatSummary, StepLabel } from './components.jsx';
 
@@ -11,7 +14,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [catalogError, setCatalogError] = useState('');
   const [session, setSession] = useState(readSession);
-  const [view, setView] = useState('movies');
+  const [view, setView] = useState(() => window.location.hash === '#admin' ? 'admin' : 'movies');
   const [tab, setTab] = useState('showing');
   const [query, setQuery] = useState('');
   const [language, setLanguage] = useState('all');
@@ -38,13 +41,30 @@ function App() {
   }, []);
   useEffect(() => { loadCatalog(); }, [loadCatalog]);
 
-  const signOut = useCallback(() => { window.google?.accounts?.id?.disableAutoSelect(); setSession(null); saveSession(null); setBookings([]); setPaymentBooking(null); setView('movies'); }, []);
+  const signOut = useCallback(() => {
+    const previous = readSession();
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    window.google?.accounts?.id?.disableAutoSelect();
+    saveSession(null);
+    setSession(null);
+    setBookings([]);
+    setPaymentBooking(null);
+    setView('movies');
+    revokeSession(previous).catch(() => notify('Signed out here. The server could not revoke the refresh session.'));
+  }, [notify]);
+  useEffect(() => {
+    const onRefresh = event => setSession(event.detail);
+    window.addEventListener('ticketbox-session-refreshed', onRefresh);
+    return () => window.removeEventListener('ticketbox-session-refreshed', onRefresh);
+  }, []);
   useEffect(() => {
     if (!session?.token) return;
     const controller = new AbortController();
     request('/auth/me', { token: session.token, signal: controller.signal }).then(user => {
-      const next = { token: session.token, user }; setSession(next); saveSession(next);
-    }).catch(error => { if (error.name !== 'AbortError') { signOut(); notify('Your session ended. Please sign in again.'); } });
+      if (controller.signal.aborted) return;
+      const next = updateSessionUser(user);
+      if (next) setSession(next);
+    }).catch(error => { if (!controller.signal.aborted && (error.status === 401 || error.status === 403)) { signOut(); notify('Your session ended. Please sign in again.'); } });
     return () => controller.abort();
   }, [session?.token, signOut, notify]);
 
@@ -70,12 +90,14 @@ function App() {
 
   function navigate(next) {
     setView(next); setQuery(''); setDate('all'); setLanguage('all');
+    window.history.replaceState(null, '', next === 'admin' ? '#admin' : window.location.pathname + window.location.search);
     if (next === 'movies') setTab('showing');
     window.scrollTo?.({ top: 0, behavior: 'smooth' });
   }
 
   function onAuthenticated(next) {
     setSession(next); saveSession(next); setAuth(null); notify(`You're in. Welcome, ${next.user.username}!`);
+    if (isOperator(next.user)) navigate('admin');
   }
 
   async function cancelBooking(booking) {
@@ -90,17 +112,20 @@ function App() {
   const closeHelp = useCallback(() => setHelp(false), []);
   const closePayment = useCallback(() => setPaymentBooking(null), []);
 
+  if (view === 'admin') return <><AdminWorkspace session={session} onExit={() => navigate('movies')} onSignOut={signOut} onSignIn={() => setAuth('login')} onCatalogChanged={loadCatalog} />{auth && <AuthDialog mode={auth} setMode={setAuth} onClose={closeAuth} onAuthenticated={onAuthenticated} />}</>;
+
   return <div className="app-shell">
     <aside className="sidebar">
       <button className="brand" aria-label="Ticketbox home" onClick={() => navigate('movies')}><span className="brand-symbol"><Ticket size={26} strokeWidth={2.3} /></span>ticketbox<span className="brand-dot">.</span></button>
       <span className="nav-caption">YOUR NEXT GREAT NIGHT</span>
       <nav aria-label="Main navigation">
+        {isOperator(session?.user) && <button className="nav-item" onClick={() => navigate('admin')}><ShieldCheck size={19} />Admin workspace</button>}
         <button className={`nav-item ${view === 'movies' ? 'selected' : ''}`} onClick={() => navigate('movies')}><Clapperboard size={19} />Discover movies <ArrowUpRight size={15} className="nav-arrow" /></button>
         <button className={`nav-item ${view === 'bookings' ? 'selected' : ''}`} onClick={() => navigate('bookings')}><Ticket size={19} />My bookings</button>
         <button className={`nav-item ${view === 'saved' ? 'selected' : ''}`} onClick={() => navigate('saved')}><Bookmark size={18} />Watchlist <span className="nav-count">{saved.length}</span></button>
       </nav>
       <div className="sidebar-note"><span className="note-spark">✳</span><h3>Less scrolling.<br />More cinema.</h3><p>A good story is even better on the big screen.</p><button onClick={() => { navigate('movies'); document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' }); }}>Find your next favorite <ArrowUpRight size={16} /></button></div>
-      <div className="sidebar-bottom"><button className="nav-item" onClick={() => setHelp(true)}><CircleHelp size={18} />A little help?</button><div className="sidebar-footnote"><span className="live-dot" />Made for movie people.</div></div>
+      <div className="sidebar-bottom"><button className="nav-item" aria-label="Help" onClick={() => setHelp(true)}><CircleHelp size={18} /><span>A little help?</span></button><div className="sidebar-footnote"><span className="live-dot" />Made for movie people.</div></div>
     </aside>
 
     <div className="workspace">
@@ -132,9 +157,19 @@ function App() {
 export function AuthDialog({ mode, setMode, onClose, onAuthenticated }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const passwordId = useId();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const signup = mode === 'signup';
+
+  function switchMode() {
+    setUsername('');
+    setPassword('');
+    setPasswordVisible(false);
+    setError('');
+    setMode(signup ? 'login' : 'signup');
+  }
   async function submit(event) {
     event.preventDefault(); setBusy(true); setError('');
     try {
@@ -144,7 +179,41 @@ export function AuthDialog({ mode, setMode, onClose, onAuthenticated }) {
     } catch (error) { setError(error.message); }
     finally { setBusy(false); }
   }
-  return <Dialog title={signup ? 'Create an account' : 'Welcome back'} onClose={onClose}><div className="dialog-emblem"><Ticket size={28} /></div><h2>{signup ? 'Your next great night starts here.' : 'Good to see you again.'}</h2><p className="muted">{signup ? 'A few details, and you’re one step closer to the big screen.' : 'Sign in to save your seat and find your bookings.'}</p><GoogleSignIn onAuthenticated={onAuthenticated} /><form className="auth-form" onSubmit={submit}><label>Username<input autoComplete="username" required minLength={signup ? 3 : 1} maxLength={30} value={username} onChange={event => setUsername(event.target.value)} placeholder="Your username" /></label><label>Password<input type="password" autoComplete={signup ? 'new-password' : 'current-password'} required minLength={signup ? 8 : 1} maxLength={64} value={password} onChange={event => setPassword(event.target.value)} placeholder={signup ? 'At least 8 characters' : 'Your password'} /></label>{error && <p className="inline-error" role="alert">{error}</p>}<button className="primary-button" disabled={busy}>{busy ? 'One moment…' : signup ? 'Create account' : 'Sign in'}<ArrowRight size={17} /></button></form><p className="auth-switch">{signup ? 'Already part of the audience?' : 'New around here?'} <button onClick={() => { setMode(signup ? 'login' : 'signup'); setError(''); }}>{signup ? 'Sign in' : 'Create an account'}</button></p></Dialog>;
+  return (
+    <Dialog title={signup ? 'Create an account' : 'Welcome back'} onClose={onClose}>
+      <div className="dialog-emblem"><Ticket size={28} /></div>
+      <h2>{signup ? 'Your next great night starts here.' : 'Good to see you again.'}</h2>
+      <p className="muted">{signup ? 'A few details, and you’re one step closer to the big screen.' : 'Sign in to save your seat and find your bookings.'}</p>
+      <GoogleSignIn onAuthenticated={onAuthenticated} />
+      <form className="auth-form" onSubmit={submit}>
+        <label>
+          Username
+          <input autoComplete="username" required minLength={signup ? 3 : 1} maxLength={30} value={username} onChange={event => setUsername(event.target.value)} placeholder="Your username" />
+        </label>
+        <div className="auth-password-field">
+          <label htmlFor={passwordId}>Password</label>
+          <div className="auth-password-input">
+            <input id={passwordId} type={passwordVisible ? 'text' : 'password'} autoComplete={signup ? 'new-password' : 'current-password'} required minLength={signup ? 8 : 1} maxLength={64} value={password} onChange={event => setPassword(event.target.value)} placeholder={signup ? 'At least 8 characters' : 'Your password'} />
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={passwordVisible ? 'Hide password' : 'Show password'}
+              aria-controls={passwordId}
+              onClick={() => setPasswordVisible(visible => !visible)}
+            >
+              {passwordVisible ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
+            </button>
+          </div>
+        </div>
+        {error && <p className="inline-error" role="alert">{error}</p>}
+        <button className="primary-button" disabled={busy}>{busy ? 'One moment…' : signup ? 'Create account' : 'Sign in'}<ArrowRight size={17} /></button>
+      </form>
+      <p className="auth-switch">
+        {signup ? 'Already part of the audience?' : 'New around here?'}{' '}
+        <button type="button" disabled={busy} onClick={switchMode}>{signup ? 'Sign in' : 'Create an account'}</button>
+      </p>
+    </Dialog>
+  );
 }
 
 export function MovieDialog({ movie, shows, session, onClose, onSignIn, onBooked }) {
@@ -183,7 +252,6 @@ export function MovieDialog({ movie, shows, session, onClose, onSignIn, onBooked
 
 export function PaymentDialog({ booking, session, onClose, onChanged }) {
   const [remaining, setRemaining] = useState(() => secondsRemaining(booking.expires_at));
-  const [method, setMethod] = useState('CREDIT_CARD');
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -200,11 +268,11 @@ export function PaymentDialog({ booking, session, onClose, onChanged }) {
   const paid = active?.status === 'PAID';
   async function createPayment() {
     setBusy(true); setError('');
-    try { const payment = await request('/payments', { token: session.token, method: 'POST', body: { booking_id: booking.id, method } }); setPayments(previous => [payment, ...previous]); onChanged(); }
+    try { const payment = await request('/payments', { token: session.token, method: 'POST', body: { booking_id: booking.id, method: 'BANK_TRANSFER' } }); setPayments(previous => [payment, ...previous]); onChanged(); }
     catch (error) { setError(error.message); }
     finally { setBusy(false); }
   }
-  return <Dialog title="Your reservation" onClose={onClose}><div className="dialog-emblem"><Check size={29} /></div><h2>{paid ? 'You’re going to the movies.' : remaining ? 'Good choice. Great seats.' : 'This reservation has expired.'}</h2><p className="muted">{paid ? 'Your payment is verified and your booking is confirmed.' : remaining ? 'Your seats are reserved. Here’s what’s next.' : 'Head back to the lineup to choose your seats again.'}</p><div className="ticket-summary"><div><span className="eyebrow">BOOKING #{String(booking.id).padStart(5, '0')}</span><h3>{booking.movie_title}</h3><p>{dayLabel(booking.start_time)} · {time(booking.start_time)}</p><p>{booking.room_name} · Seats {booking.seats?.join(', ')}</p></div><div className="ticket-total"><span>Total</span><strong>{money(booking.total_price)}</strong></div></div>{!paid && remaining > 0 && <div className="hold-countdown"><Clock3 size={17} />Seats held for <strong>{Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}</strong></div>}{loading ? <p role="status">Checking payment details…</p> : paid ? <p className="success-note"><ShieldCheck size={18} />Payment confirmed. See you at the movies!</p> : remaining > 0 && (active ? <div className="payment-notice"><span className="status status-pending">Awaiting verification</span><p>Payment request #{active.id} has been created for <strong>{money(active.amount)}</strong>. Please arrange payment with the cinema and use this reference.</p><p>Your ticket will be confirmed after the cinema verifies payment.</p><button className="text-button" onClick={async () => { setLoading(true); await load(); onChanged(); }}>Refresh payment status <ArrowRight size={16} /></button></div> : <div className="payment-form"><label>Payment method<select value={method} onChange={event => setMethod(event.target.value)}><option value="CREDIT_CARD">Credit card</option><option value="BANK_TRANSFER">Bank transfer</option><option value="DEBIT_CARD">Debit card</option><option value="PAYPAL">PayPal</option></select></label><p className="muted small">Create a payment request, then arrange payment with the cinema. A request alone does not confirm your ticket.</p><button className="primary-button" disabled={busy || !!error} onClick={createPayment}>{busy ? 'Creating request…' : 'Create payment request'}<ArrowRight size={17} /></button></div>)}{error && <p className="inline-error" role="alert">{error} <button className="text-button" onClick={load}>Retry</button></p>}<button className="secondary-button full-width" onClick={onClose}>Back to my bookings</button></Dialog>;
+  return <Dialog title="Your reservation" onClose={onClose}><div className="dialog-emblem"><Check size={29} /></div><h2>{paid ? 'You’re going to the movies.' : remaining ? 'Good choice. Great seats.' : 'This reservation has expired.'}</h2><p className="muted">{paid ? (isDemoPayment(active) ? 'Demo payment successful. Your demo booking is confirmed; no money was transferred.' : 'Your payment is verified and your booking is confirmed.') : remaining ? 'Your seats are reserved. Here’s what’s next.' : 'Choose another show or seats to book again. If you already transferred money, contact the cinema with your payment reference.'}</p><div className="ticket-summary"><div><span className="eyebrow">BOOKING #{String(booking.id).padStart(5, '0')}</span><h3>{booking.movie_title}</h3><p>{dayLabel(booking.start_time)} · {time(booking.start_time)}</p><p>{booking.room_name} · Seats {booking.seats?.join(', ')}</p></div><div className="ticket-total"><span>Total</span><strong>{money(booking.total_price)}</strong></div></div>{!paid && remaining > 0 && <div className="hold-countdown"><Clock3 size={17} />Seats held for <strong>{Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}</strong></div>}{loading ? <p role="status">Checking payment details…</p> : paid ? <p className="success-note"><ShieldCheck size={18} />{isDemoPayment(active) ? 'Demo confirmed. No real charge.' : 'Payment confirmed. See you at the movies!'}</p> : remaining > 0 && (active ? <div className="payment-notice"><PaymentCheckout payment={active} token={session.token} expired={remaining === 0} onSettled={result => { setPayments(previous => previous.map(payment => payment.id === result.id ? result : payment)); onChanged(); }} /><button className="text-button" onClick={async () => { setLoading(true); await load(); onChanged(); }}>Refresh payment status <ArrowRight size={16} /></button></div> : <div className="payment-form"><h3>QR payment</h3><p className="muted small">Generate a payment QR for your reservation. The checkout shows whether you are using SePay, SePay Test mode, or the local demo.</p><button className="primary-button" disabled={busy || !!error} onClick={createPayment}>{busy ? 'Generating QR…' : 'Show payment QR'}<ArrowRight size={17} /></button></div>)}{error && <p className="inline-error" role="alert">{error} <button className="text-button" onClick={load}>Retry</button></p>}<button className="secondary-button full-width" onClick={onClose}>Back to my bookings</button></Dialog>;
 }
 
 export default App;

@@ -28,18 +28,24 @@ public class ShowServiceImpl implements ShowService {
     private final RoomService roomService;
     private final ShowMapper showMapper;
     private final ShowSeatRepository showSeatRepository;
+    private final com.example.ticketbox.room.repository.RoomRepository roomRepository;
+    private final com.example.ticketbox.movie.repository.MovieRepository movieRepository;
+    private final jakarta.persistence.EntityManager entityManager;
 
     @Transactional
     public Show createShow(CreateShowReq req) {
 
-        Movies movie = movieService.getById(req.getMovieId());
+        Movies movie = movieRepository.findByIdForUpdate(req.getMovieId()).orElseThrow(() -> new EntityNotFoundException("Movie not found"));
+        entityManager.refresh(movie);
+        if (movie.isArchived()) throw new IllegalStateException("Restore the movie before scheduling a screening");
 
-        Rooms room = roomService.getById(req.getRoomId());
+        Rooms room = roomRepository.findByIdForUpdate(req.getRoomId()).orElseThrow(() -> new EntityNotFoundException("Room not found"));
 
         Show show = showMapper.toEntity(req);
         show.setMovie(movie);
         show.setRoom(room);
         validateTimes(show.getStartTime(), show.getEndTime());
+        validateRoomAvailability(show);
 
         // 1️⃣ SAVE SHOW FIRST (ID REQUIRED)
         Show savedShow = showRepo.save(show);
@@ -81,6 +87,8 @@ public class ShowServiceImpl implements ShowService {
 
         showMapper.update(req, show);
         validateTimes(show.getStartTime(), show.getEndTime());
+        roomRepository.findByIdForUpdate(show.getRoom().getId()).orElseThrow(() -> new EntityNotFoundException("Room not found"));
+        validateRoomAvailability(show);
 
         return showRepo.save(show);
     }
@@ -88,6 +96,14 @@ public class ShowServiceImpl implements ShowService {
     private void validateTimes(java.time.LocalDateTime startTime, java.time.LocalDateTime endTime) {
         if (startTime != null && endTime != null && !endTime.isAfter(startTime)) {
             throw new IllegalArgumentException("Show end time must be after start time");
+        }
+    }
+
+    private void validateRoomAvailability(Show show) {
+        if (show.getStartTime() != null && show.getEndTime() != null &&
+                showRepo.existsByRoomIdAndIdNotAndStartTimeLessThanAndEndTimeGreaterThan(
+                        show.getRoom().getId(), show.getId() == null ? -1 : show.getId(), show.getEndTime(), show.getStartTime())) {
+            throw new IllegalStateException("This room already has a screening during that time");
         }
     }
 

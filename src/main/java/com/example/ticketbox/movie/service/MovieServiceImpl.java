@@ -31,7 +31,7 @@ public class MovieServiceImpl implements MovieService {
 
     @Override
     public List<Movies> getMovies() {
-        return movieRepository.findAll();
+        return movieRepository.findByArchivedFalse();
     }
 
     @Override

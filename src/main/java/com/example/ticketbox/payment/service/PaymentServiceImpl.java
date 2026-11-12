@@ -33,11 +33,13 @@ public class PaymentServiceImpl implements PaymentService {
     private final UserRepository userRepository;
     private final PaymentMapper paymentMapper;
     private final PaymentMethodFactory paymentMethodFactory;
+    private final jakarta.persistence.EntityManager entityManager;
+    private final com.example.ticketbox.showseat.repository.ShowSeatRepository showSeats;
 
     @Override
     public Payments createPayment(CreatePaymentRequest request, String username) {
         Booking booking = getBookingForUpdate(request.getBookingId());
-        requireAccess(booking, username);
+        requireAccess(booking, username, com.example.ticketbox.enums.UserPermission.MANAGE_PAYMENTS);
         requirePayable(booking);
 
         if (paymentRepository.existsByBookingIdAndStatusIn(booking.getId(), ACTIVE_STATUSES)) {
@@ -58,7 +60,7 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional(readOnly = true)
     public Payments getPayment(Long id, String username) {
         Payments payment = findPayment(id);
-        requireAccess(payment.getBooking(), username);
+        requireAccess(payment.getBooking(), username, com.example.ticketbox.enums.UserPermission.VIEW_PAYMENTS);
         return payment;
     }
 
@@ -66,14 +68,20 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional(readOnly = true)
     public List<Payments> getPaymentsByBooking(Long bookingId, String username) {
         Booking booking = getBooking(bookingId);
-        requireAccess(booking, username);
+        requireAccess(booking, username, com.example.ticketbox.enums.UserPermission.VIEW_PAYMENTS);
         return paymentRepository.findByBookingIdOrderByCreatedAtDesc(bookingId);
     }
 
     @Override
     public Payments completePayment(Long id, String transactionId, String username) {
+        lockBookingForPayment(id);
         Payments payment = findPaymentForUpdate(id);
         requirePrivileged(username);
+
+        return settlePayment(payment, transactionId);
+    }
+
+    Payments settlePayment(Payments payment, String transactionId) {
 
         String normalizedTransactionId = transactionId == null ? "" : transactionId.trim();
         if (normalizedTransactionId.isEmpty()) {
@@ -93,15 +101,23 @@ public class PaymentServiceImpl implements PaymentService {
             throw new IllegalStateException("Transaction ID already exists");
         }
 
+        Booking booking = payment.getBooking();
+        var seatIds = booking.getBookingSeats().stream().map(seat -> seat.getShowSeat().getId()).toList();
+        var lockedSeats = showSeats.findByIdInForUpdate(seatIds);
+        lockedSeats.forEach(entityManager::refresh);
+        requirePayable(booking);
+        if (lockedSeats.size() != seatIds.size() || lockedSeats.stream().anyMatch(seat -> seat.getStatus() != SeatStatus.PENDING
+                || !java.util.Objects.equals(seat.getHeldUntil(), booking.getExpiresAt()))) {
+            throw new IllegalStateException("The booking no longer holds all its seats");
+        }
         payment.setStatus(PaymentStatus.PAID);
         payment.setTransactionId(normalizedTransactionId);
         payment.setPaidAt(LocalDateTime.now());
 
-        Booking booking = payment.getBooking();
         booking.setStatus(BookingStatus.CONFIRMED);
-        booking.getBookingSeats().forEach(bookingSeat -> {
-            bookingSeat.getShowSeat().setStatus(SeatStatus.BOOKED);
-            bookingSeat.getShowSeat().setHeldUntil(null);
+        lockedSeats.forEach(seat -> {
+            seat.setStatus(SeatStatus.BOOKED);
+            seat.setHeldUntil(null);
         });
         bookingRepository.save(booking);
         return payment;
@@ -109,8 +125,9 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public Payments cancelPayment(Long id, String username) {
-        Payments payment = findPayment(id);
-        requireAccess(payment.getBooking(), username);
+        lockBookingForPayment(id);
+        Payments payment = findPaymentForUpdate(id);
+        requireAccess(payment.getBooking(), username, com.example.ticketbox.enums.UserPermission.MANAGE_PAYMENTS);
         if (payment.getStatus() != PaymentStatus.PENDING) {
             throw new IllegalStateException("Only pending payments can be cancelled");
         }
@@ -124,8 +141,10 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private Payments findPaymentForUpdate(Long id) {
-        return paymentRepository.findByIdForUpdate(id)
+        var payment = paymentRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new EntityNotFoundException("Payment not found"));
+        entityManager.refresh(payment);
+        return payment;
     }
 
     private Booking getBooking(Long id) {
@@ -134,8 +153,22 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private Booking getBookingForUpdate(Long id) {
-        return bookingRepository.findByIdForUpdate(id)
+        var booking = bookingRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new EntityNotFoundException("Booking not found"));
+        entityManager.refresh(booking);
+        return booking;
+    }
+
+    void lockBookingForPayment(Long paymentId) {
+        getBookingForUpdate(paymentRepository.findBookingId(paymentId)
+                .orElseThrow(() -> new EntityNotFoundException("Payment not found")));
+    }
+
+    Payments lockOwnedPayment(Long id, String username) {
+        lockBookingForPayment(id);
+        Payments payment = findPaymentForUpdate(id);
+        requireAccess(payment.getBooking(), username, com.example.ticketbox.enums.UserPermission.MANAGE_PAYMENTS);
+        return payment;
     }
 
     private void requirePayable(Booking booking) {
@@ -147,11 +180,10 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
-    private void requireAccess(Booking booking, String username) {
+    private void requireAccess(Booking booking, String username, com.example.ticketbox.enums.UserPermission permission) {
         Users currentUser = userRepository.findByUsername(username)
                 .orElseThrow(() -> new AccessDeniedException("Authenticated user not found"));
-        boolean privileged = currentUser.getRole() == UserRoles.ADMIN
-                || currentUser.getRole() == UserRoles.MODERATOR;
+        boolean privileged = currentUser.hasPermission(permission);
         if (!privileged && !currentUser.getId().equals(booking.getUser().getId())) {
             throw new AccessDeniedException("You cannot access this payment");
         }
@@ -160,8 +192,7 @@ public class PaymentServiceImpl implements PaymentService {
     private void requirePrivileged(String username) {
         Users currentUser = userRepository.findByUsername(username)
                 .orElseThrow(() -> new AccessDeniedException("Authenticated user not found"));
-        if (currentUser.getRole() != UserRoles.ADMIN
-                && currentUser.getRole() != UserRoles.MODERATOR) {
+        if (!currentUser.hasPermission(com.example.ticketbox.enums.UserPermission.MANAGE_PAYMENTS)) {
             throw new AccessDeniedException("Only a payment operator can complete payments");
         }
     }

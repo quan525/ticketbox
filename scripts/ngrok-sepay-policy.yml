@@ -1,0 +1,11 @@
+# Expose only the existing authenticated SePay webhook, not the booking/admin site.
+on_http_request:
+  - expressions:
+      - "req.url.path != '/api/payments/sepay/webhook' || req.method != 'POST'"
+    actions:
+      - type: custom-response
+        config:
+          status_code: 404
+          body: '{"message":"Not found"}'
+          headers:
+            content-type: application/json

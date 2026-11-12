@@ -11,7 +11,9 @@ public record UserDetailResponse(
         String email,
         String firstName,
         String lastName,
-        UserRoles role
+        UserRoles role,
+        boolean customPermissions,
+        java.util.Set<com.example.ticketbox.enums.UserPermission> permissions
 ) {
     public static UserDetailResponse from(Users user) {
         Objects.requireNonNull(user, "User must not be null");
@@ -22,7 +24,9 @@ public record UserDetailResponse(
                 user.getEmail(),
                 user.getFirstName(),
                 user.getLastName(),
-                user.getRole()
+                user.getRole(), user.isCustomPermissions(), user.getEffectivePermissions().stream()
+                        .filter(permission -> permission != com.example.ticketbox.enums.UserPermission.VIEW_OPERATIONS)
+                        .collect(java.util.stream.Collectors.toSet())
         );
     }
 }

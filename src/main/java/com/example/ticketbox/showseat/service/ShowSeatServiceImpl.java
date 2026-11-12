@@ -27,6 +27,7 @@ public class ShowSeatServiceImpl implements ShowSeatService {
     private final ShowSeatRepository showSeatRepository;
     private final ShowService showService;
     private final SeatService seatService;
+    private final jakarta.persistence.EntityManager entityManager;
 
     @Override
     public List<ShowSeat> createShowSeats(CreateShowSeatReq req) {
@@ -52,6 +53,7 @@ public class ShowSeatServiceImpl implements ShowSeatService {
                 .map(seat -> ShowSeat.builder()
                         .show(show)
                         .seat(seat)
+                        .seatTypeAtScheduling(seat.getSeatType())
                         .status(SeatStatus.AVAILABLE)
                         .price(req.getPrice())
                         .build())
@@ -67,7 +69,8 @@ public class ShowSeatServiceImpl implements ShowSeatService {
     @Override
     public List<ShowSeat> getShowSeatsByShowId(Integer showId) {
 
-        var seats = showSeatRepository.findByShowId(showId);
+        var seats = showSeatRepository.findByShowIdForUpdate(showId);
+        seats.forEach(entityManager::refresh);
         var now = java.time.LocalDateTime.now();
         seats.forEach(seat -> {
             if (seat.getStatus() == SeatStatus.PENDING && seat.getHeldUntil() != null && !seat.getHeldUntil().isAfter(now)) {
@@ -111,7 +114,7 @@ public class ShowSeatServiceImpl implements ShowSeatService {
         Show show = showService.getShowById(showId);
         Integer roomId = show.getRoom().getId();
 
-        List<Seats> seats = seatService.getSeatsByRoom(roomId);
+        List<Seats> seats = seatService.getSeatsByRoomForScheduling(roomId);
 
         if (seats.isEmpty()) {
             throw new IllegalStateException("Room has no seats");
@@ -121,6 +124,7 @@ public class ShowSeatServiceImpl implements ShowSeatService {
                 .map(seat -> ShowSeat.builder()
                         .show(show)
                         .seat(seat)
+                        .seatTypeAtScheduling(seat.getSeatType())
                         .status(SeatStatus.AVAILABLE)
                         .price(calculatePrice(seat))
                         .build())

@@ -23,6 +23,7 @@ public class UserController {
 
     private final UserService userService;
     private final UserMapper userMapper;
+    private final com.example.ticketbox.admin.AdminWorkspaceService adminWorkspace;
 
     @PostMapping
     public UserDetailResponse createUser(
@@ -34,7 +35,8 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    public UserDetailResponse getUser(@PathVariable Integer id) {
+    public UserDetailResponse getUser(@PathVariable Integer id, java.security.Principal actor) {
+        requireProfileAccess(id, actor, false);
         return userMapper.toResponse(
                 userService.getUserById(id)
         );
@@ -53,8 +55,9 @@ public class UserController {
     @PutMapping("/{id}")
     public UserDetailResponse updateUser(
             @PathVariable Integer id,
-            @RequestBody @Valid UpdateUserRequest request
+            @RequestBody @Valid UpdateUserRequest request, java.security.Principal actor
     ) {
+        requireProfileAccess(id, actor, true);
         return userMapper.toResponse(
                 userService.updateUser(id, request)
         );
@@ -63,10 +66,17 @@ public class UserController {
     @PatchMapping("/{id}/role")
     public UserDetailResponse updateUserRole(
             @PathVariable Integer id,
-            @RequestParam UserRoles role
+            @RequestParam UserRoles role, java.security.Principal actor
     ) {
-        return userMapper.toResponse(
-                userService.updateUserRole(id, role)
-        );
+        return adminWorkspace.changeRole(id, role, actor.getName());
+    }
+    private void requireProfileAccess(Integer id, java.security.Principal actor, boolean update) {
+        var current = userService.getUserByName(actor.getName()).orElseThrow();
+        boolean allowed = update ? current.getRole() == UserRoles.ADMIN
+                : (current.hasPermission(com.example.ticketbox.enums.UserPermission.VIEW_CUSTOMERS)
+                    && userService.getUserById(id).getRole() == UserRoles.USER
+                    && !userService.getUserById(id).hasPermission(com.example.ticketbox.enums.UserPermission.VIEW_OPERATIONS));
+        if (!current.getId().equals(id) && !allowed)
+            throw new org.springframework.security.access.AccessDeniedException("You cannot access this account");
     }
 }
