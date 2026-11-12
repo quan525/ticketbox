@@ -8,3 +8,26 @@ build
 .local
 frontend/node_modules
 frontend/dist
+
+
+**/.env
+**/.env.*
+**/*.env
+**/*.env.*
+**/secrets
+**/.secrets
+**/.ssh
+**/.aws
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.jks
+**/*.keystore
+**/*.mv.db
+**/*.trace.db
+**/*.dump
+**/*.backup
+
+# Retired QR preview asset.
+frontend/public/payment-qr/
