@@ -1,33 +1,33 @@
 package com.example.ticketbox.show.repository;
 
 import com.example.ticketbox.entity.Show;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
-public interface ShowRepository extends JpaRepository<Show, Integer> {
+public interface ShowRepository extends JpaRepository<Show, Integer>, JpaSpecificationExecutor<Show> {
     boolean existsByRoomIdAndIdNotAndStartTimeLessThanAndEndTimeGreaterThan(Integer roomId, Integer id, LocalDateTime end, LocalDateTime start);
     boolean existsByMovieIdAndEndTimeAfter(Integer movieId, LocalDateTime now);
-    @Query("""
-                SELECT s FROM Show s
-                JOIN s.movie m
-                WHERE (:movieTitle IS NULL OR LOWER(m.title) LIKE LOWER(CONCAT('%', :movieTitle, '%')))
-                  AND (:startTime IS NULL OR s.startTime >= :startTime)
-                ORDER BY s.startTime ASC
-            """)
-    List<Show> findAllByFilter(
-            @Param("movieTitle") String movieTitle,
-            @Param("startTime") LocalDateTime startTime
-    );
 
+    default List<Show> findAllByFilter(String movieTitle, LocalDateTime startTime) {
+        Specification<Show> filters = (show, query, builder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (movieTitle != null) {
+                predicates.add(builder.like(
+                        builder.lower(show.join("movie").get("title")),
+                        builder.lower(builder.literal("%" + movieTitle + "%"))));
+            }
+            if (startTime != null) {
+                predicates.add(builder.greaterThanOrEqualTo(show.get("startTime"), startTime));
+            }
+            return builder.and(predicates.toArray(Predicate[]::new));
+        };
+        return findAll(filters, Sort.by("startTime"));
+    }
 }
-
-
-//WHERE (:movieTitle IS NULL OR m.title = :movieTitle)
-//AND (:startTime IS NULL OR s.startTime > :startTime)
-
-//WHERE(COALESCE(:movieTitle, '') IS NULL OR m.title = :movieTitle)
-//AND (COALESCE(:startTime, '') IS NULL OR s.startTime > :startTime)
