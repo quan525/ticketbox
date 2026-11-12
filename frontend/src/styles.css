@@ -56,3 +56,30 @@
   .sidebar-bottom .nav-item { width: 44px; min-height: 44px; justify-content: center; }
   .sidebar-bottom .nav-item > span, .sidebar-footnote { display: none; }
 }
+
+.auth-password-field {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-password-input {
+  position: relative;
+}
+
+.auth-password-input input {
+  padding-inline-end: 44px;
+}
+
+.auth-password-input .icon-button {
+  position: absolute;
+  inset-inline-end: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  color: #506b32;
+}
+
+.auth-password-input input::-ms-reveal {
+  display: none;
+}

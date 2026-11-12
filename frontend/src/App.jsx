@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ArrowRight, ArrowUpRight, Bookmark, CalendarDays, Check, ChevronDown, CircleHelp, Clapperboard, Clock3, Film, LogOut, MapPin, Search, ShieldCheck, Sparkles, Ticket, UserRound, X } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo, useId } from 'react';
+import { ArrowRight, ArrowUpRight, Bookmark, CalendarDays, Check, ChevronDown, CircleHelp, Clapperboard, Clock3, Eye, EyeOff, Film, LogOut, MapPin, Search, ShieldCheck, Sparkles, Ticket, UserRound, X } from 'lucide-react';
 import { request, readSession, revokeSession, saveSession, updateSessionUser } from './api.js';
 import GoogleSignIn from './GoogleSignIn.jsx';
 import PaymentCheckout from './PaymentCheckout.jsx';
@@ -157,9 +157,19 @@ function App() {
 export function AuthDialog({ mode, setMode, onClose, onAuthenticated }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const passwordId = useId();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const signup = mode === 'signup';
+
+  function switchMode() {
+    setUsername('');
+    setPassword('');
+    setPasswordVisible(false);
+    setError('');
+    setMode(signup ? 'login' : 'signup');
+  }
   async function submit(event) {
     event.preventDefault(); setBusy(true); setError('');
     try {
@@ -169,7 +179,41 @@ export function AuthDialog({ mode, setMode, onClose, onAuthenticated }) {
     } catch (error) { setError(error.message); }
     finally { setBusy(false); }
   }
-  return <Dialog title={signup ? 'Create an account' : 'Welcome back'} onClose={onClose}><div className="dialog-emblem"><Ticket size={28} /></div><h2>{signup ? 'Your next great night starts here.' : 'Good to see you again.'}</h2><p className="muted">{signup ? 'A few details, and you’re one step closer to the big screen.' : 'Sign in to save your seat and find your bookings.'}</p><GoogleSignIn onAuthenticated={onAuthenticated} /><form className="auth-form" onSubmit={submit}><label>Username<input autoComplete="username" required minLength={signup ? 3 : 1} maxLength={30} value={username} onChange={event => setUsername(event.target.value)} placeholder="Your username" /></label><label>Password<input type="password" autoComplete={signup ? 'new-password' : 'current-password'} required minLength={signup ? 8 : 1} maxLength={64} value={password} onChange={event => setPassword(event.target.value)} placeholder={signup ? 'At least 8 characters' : 'Your password'} /></label>{error && <p className="inline-error" role="alert">{error}</p>}<button className="primary-button" disabled={busy}>{busy ? 'One moment…' : signup ? 'Create account' : 'Sign in'}<ArrowRight size={17} /></button></form><p className="auth-switch">{signup ? 'Already part of the audience?' : 'New around here?'} <button onClick={() => { setMode(signup ? 'login' : 'signup'); setError(''); }}>{signup ? 'Sign in' : 'Create an account'}</button></p></Dialog>;
+  return (
+    <Dialog title={signup ? 'Create an account' : 'Welcome back'} onClose={onClose}>
+      <div className="dialog-emblem"><Ticket size={28} /></div>
+      <h2>{signup ? 'Your next great night starts here.' : 'Good to see you again.'}</h2>
+      <p className="muted">{signup ? 'A few details, and you’re one step closer to the big screen.' : 'Sign in to save your seat and find your bookings.'}</p>
+      <GoogleSignIn onAuthenticated={onAuthenticated} />
+      <form className="auth-form" onSubmit={submit}>
+        <label>
+          Username
+          <input autoComplete="username" required minLength={signup ? 3 : 1} maxLength={30} value={username} onChange={event => setUsername(event.target.value)} placeholder="Your username" />
+        </label>
+        <div className="auth-password-field">
+          <label htmlFor={passwordId}>Password</label>
+          <div className="auth-password-input">
+            <input id={passwordId} type={passwordVisible ? 'text' : 'password'} autoComplete={signup ? 'new-password' : 'current-password'} required minLength={signup ? 8 : 1} maxLength={64} value={password} onChange={event => setPassword(event.target.value)} placeholder={signup ? 'At least 8 characters' : 'Your password'} />
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={passwordVisible ? 'Hide password' : 'Show password'}
+              aria-controls={passwordId}
+              onClick={() => setPasswordVisible(visible => !visible)}
+            >
+              {passwordVisible ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
+            </button>
+          </div>
+        </div>
+        {error && <p className="inline-error" role="alert">{error}</p>}
+        <button className="primary-button" disabled={busy}>{busy ? 'One moment…' : signup ? 'Create account' : 'Sign in'}<ArrowRight size={17} /></button>
+      </form>
+      <p className="auth-switch">
+        {signup ? 'Already part of the audience?' : 'New around here?'}{' '}
+        <button type="button" disabled={busy} onClick={switchMode}>{signup ? 'Sign in' : 'Create an account'}</button>
+      </p>
+    </Dialog>
+  );
 }
 
 export function MovieDialog({ movie, shows, session, onClose, onSignIn, onBooked }) {
