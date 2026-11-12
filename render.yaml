@@ -3,12 +3,20 @@ databases:
     databaseName: ticketbox
     user: ticketbox
     plan: free
+    ipAllowList: []
 
 services:
+  - type: keyvalue
+    name: ticketbox-redis
+    plan: free
+    ipAllowList: []
+    maxmemoryPolicy: noeviction
+
   - type: web
     name: ticketbox
     runtime: docker
     dockerfilePath: ./Dockerfile
+    autoDeployTrigger: checksPass
     plan: free
     healthCheckPath: /api/actuator/health
     envVars:
@@ -16,9 +24,18 @@ services:
         fromDatabase:
           name: ticketbox-db
           property: connectionString
+      - key: TICKETBOX_REDIS_URL
+        fromService:
+          type: keyvalue
+          name: ticketbox-redis
+          property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: SQL_INIT_MODE
-        value: always
+        value: "never"
+      - key: MOCK_PAYMENTS_ENABLED
+        value: "false"
+      - key: REFRESH_COOKIE_SECURE
+        value: "true"
       - key: JPA_DDL_AUTO
         value: update
