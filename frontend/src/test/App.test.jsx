@@ -4,11 +4,13 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App, { AuthDialog, MovieDialog, PaymentDialog } from '../App.jsx';
 import { request } from '../api.js';
+import QRCode from 'qrcode';
+vi.mock('qrcode', () => ({ default: { toDataURL: vi.fn().mockResolvedValue('data:image/png;base64,qr') } }));
 vi.mock('../api.js', async () => ({ ...(await vi.importActual('../api.js')), request: vi.fn() }));
 const movie = { id: 1, title: 'The Last Orbit', duration_min: 120, language: 'EN', author: 'Alex Morgan' };
 const show = { id: 1, movie, room: { name: 'Screen 01' }, start_time: '2099-05-01T18:30:00' };
 const session = { token: 'test-token', user: { id: 7, username: 'cinemafan' } };
-beforeEach(() => { request.mockReset(); localStorage.clear(); window.scrollTo = vi.fn(); });
+beforeEach(() => { request.mockReset(); QRCode.toDataURL.mockResolvedValue('data:image/png;base64,qr'); localStorage.clear(); window.scrollTo = vi.fn(); });
 describe('movie discovery', () => {
   it('loads the catalog, searches, and saves movies to the watchlist', async () => {
     request.mockImplementation(path => Promise.resolve(path === '/movies' ? [movie] : [show]));
@@ -59,10 +61,23 @@ describe('booking flow', () => {
     expect(signIn).toHaveBeenCalledOnce(); expect(request).toHaveBeenCalledTimes(1);
   });
   it('does not claim a pending payment is confirmed', async () => {
-    request.mockResolvedValue([{ id: 8, amount: 100000, status: 'PENDING' }]);
+    request.mockImplementation(path => Promise.resolve(path.endsWith('/config') ? { enabled: true } : path.endsWith('/mock-checkout') ? { reference: 'MOCK-8', amount: 100000, qr_payload: 'ticketbox://mock-payment?payment_id=8' } : [{ id: 8, amount: 100000, status: 'PENDING' }]));
     render(<PaymentDialog booking={{ id: 99, movie_title: movie.title, total_price: 100000, expires_at: '2099-05-01T18:00:00', seats: ['A1'] }} session={session} onClose={vi.fn()} onChanged={vi.fn()} />);
-    expect(await screen.findByText('Awaiting verification')).toBeInTheDocument();
-    expect(screen.getByText(/confirmed after the cinema verifies/)).toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: 'VietQR test code for MOCK-8' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Simulate successful payment' })).toBeInTheDocument();
+    expect(screen.queryByText(/arrange payment with the cinema/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Payment confirmed/)).not.toBeInTheDocument();
+  });
+  it('offers only QR payment and creates a bank-transfer request', async () => {
+    request.mockImplementation(path => Promise.resolve(path === '/payments/booking/99' ? [] : path === '/payments' ? { id: 8, amount: 100000, status: 'PENDING' } : path.endsWith('/config') ? { enabled: true } : { reference: 'MOCK-8', amount: 100000, qr_payload: 'ticketbox://mock-payment?payment_id=8' }));
+    const user = userEvent.setup();
+    render(<PaymentDialog booking={{ id: 99, movie_title: movie.title, total_price: 100000, expires_at: '2099-05-01T18:00:00', seats: ['A1'] }} session={session} onClose={vi.fn()} onChanged={vi.fn()} />);
+    const button = await screen.findByRole('button', { name: 'Show payment QR' });
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByText('Credit card')).not.toBeInTheDocument();
+    expect(screen.queryByText('PayPal')).not.toBeInTheDocument();
+    await user.click(button);
+    expect(await screen.findByRole('img', { name: 'VietQR test code for MOCK-8' })).toBeInTheDocument();
+    expect(request).toHaveBeenCalledWith('/payments', expect.objectContaining({ body: { booking_id: 99, method: 'BANK_TRANSFER' } }));
   });
 });

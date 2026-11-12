@@ -12,7 +12,7 @@ import java.net.URI;
 import java.net.http.*;
 import static org.assertj.core.api.Assertions.*;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "payments.mock.enabled=true")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class WebFlowTest {
     @LocalServerPort int port;
@@ -30,6 +30,7 @@ class WebFlowTest {
         assertThat(call("GET", "/shows", null, null).statusCode()).isEqualTo(200);
         assertThat(call("POST", "/bookings/newbook", null, "{}").statusCode()).isEqualTo(401);
         assertThat(call("GET", "/auth/me", "broken", null).statusCode()).isEqualTo(401);
+        assertThat(call("GET", "/payments/mock/config", null, null).statusCode()).isEqualTo(401);
     }
     @Test void signupReservePayAndCancelThroughHttp() throws Exception {
         var signup = call("POST", "/auth/signup", null, "{\"username\":\"http-user\",\"password\":\"password123\"}");
@@ -60,5 +61,18 @@ class WebFlowTest {
         String other = JsonPath.read(otherSignup.body(), "$.token");
         assertThat(call("GET", "/bookings/"+bookingId, other, null).statusCode()).isEqualTo(403);
         assertThat(call("POST", "/bookings/newbook", other, "{\"userId\":"+userId+",\"showId\":"+show.getId()+",\"showSeatIds\":["+seatId+"]}").statusCode()).isEqualTo(403);
+        var nextBooking = call("POST", "/bookings/newbook", token, "{\"userId\":"+userId+",\"showId\":"+show.getId()+",\"showSeatIds\":["+seatId+"]}");
+        assertThat(nextBooking.statusCode()).isEqualTo(201);
+        Number nextId = JsonPath.read(nextBooking.body(), "$.id");
+        var nextPayment = call("POST", "/payments", token, "{\"booking_id\":"+nextId+",\"method\":\"BANK_TRANSFER\"}");
+        Number nextPaymentId = JsonPath.read(nextPayment.body(), "$.id");
+        assertThat(call("GET", "/payments/"+nextPaymentId+"/mock-checkout", token, null).statusCode()).isEqualTo(200);
+        assertThat(call("POST", "/payments/"+nextPaymentId+"/mock-confirm", other, "{\"outcome\":\"SUCCESS\"}").statusCode()).isEqualTo(403);
+        assertThat(call("POST", "/payments/"+nextPaymentId+"/mock-confirm", token, "{\"outcome\":\"INVALID\"}").statusCode()).isEqualTo(400);
+        var confirmed = call("POST", "/payments/"+nextPaymentId+"/mock-confirm", token, "{\"outcome\":\"SUCCESS\"}");
+        assertThat(confirmed.statusCode()).isEqualTo(200);
+        assertThat((String)JsonPath.read(confirmed.body(), "$.status")).isEqualTo("PAID");
+        assertThat(call("POST", "/payments/"+nextPaymentId+"/mock-confirm", token, "{\"outcome\":\"SUCCESS\"}").statusCode()).isEqualTo(200);
+        assertThat((String)JsonPath.read(call("GET", "/bookings/"+nextId, token, null).body(), "$.status")).isEqualTo("CONFIRMED");
     }
 }
