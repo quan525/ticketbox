@@ -22,7 +22,7 @@ public class TicketboxApplication {
         }
         String normalized = databaseUrl.replaceFirst("^postgres(ql)?:", "http:");
         URI uri = URI.create(normalized);
-        String userInfo = uri.getUserInfo();
+        String userInfo = uri.getRawUserInfo();
         if (userInfo != null) {
             int colon = userInfo.indexOf(':');
             if (colon >= 0) {
@@ -33,12 +33,12 @@ public class TicketboxApplication {
             }
         }
         int port = uri.getPort() == -1 ? 5432 : uri.getPort();
-        String jdbc = "jdbc:postgresql://" + uri.getHost() + ":" + port + uri.getPath();
-        jdbc += (uri.getQuery() == null || uri.getQuery().isBlank()) ? "?sslmode=require" : "?" + uri.getQuery();
+        String jdbc = "jdbc:postgresql://" + uri.getHost() + ":" + port + uri.getRawPath();
+        jdbc += (uri.getRawQuery() == null || uri.getRawQuery().isBlank()) ? "?sslmode=require" : "?" + uri.getRawQuery();
         System.setProperty("spring.datasource.url", jdbc);
     }
 
     private static String decode(String value) {
-        return URLDecoder.decode(value, StandardCharsets.UTF_8);
+        return URLDecoder.decode(value.replace("+", "%2B"), StandardCharsets.UTF_8);
     }
 }
