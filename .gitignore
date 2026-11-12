@@ -1,6 +1,26 @@
 HELP.md
 .gradle
+# Local environment values (templates may be versioned, but AI access remains denied).
 .env
+.env.*
+*.env
+*.env.*
+!.env.example
+!.env.*.example
+!*.env.example
+!**/.env.example
+!**/.env.*.example
+!**/*.env.example
+
+# Secret-bearing material
+secrets/
+.secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
 .tools/
 .local/
 frontend/node_modules/
