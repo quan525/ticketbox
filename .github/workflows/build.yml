@@ -1,0 +1,28 @@
+name: Ticketbox build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - codex/render-deploy
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ticketbox-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build deployment image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Build Ticketbox
+        run: docker build --tag ticketbox:ci .
