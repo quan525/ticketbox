@@ -9,6 +9,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface ShowRepository extends JpaRepository<Show, Integer> {
+    boolean existsByRoomIdAndIdNotAndStartTimeLessThanAndEndTimeGreaterThan(Integer roomId, Integer id, LocalDateTime end, LocalDateTime start);
+    boolean existsByMovieIdAndEndTimeAfter(Integer movieId, LocalDateTime now);
     @Query("""
                 SELECT s FROM Show s
                 JOIN s.movie m

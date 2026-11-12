@@ -13,14 +13,19 @@ public class UserDetailsService implements org.springframework.security.core.use
     UserRepository userRepository;
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String username) {
         Users user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
 
+        var authorities = new java.util.ArrayList<String>();
+        authorities.add(user.getRole().name());
+        if (user.hasPermission(com.example.ticketbox.enums.UserPermission.VIEW_OPERATIONS))
+            user.getEffectivePermissions().forEach(permission -> authorities.add(permission.name()));
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getUsername())
                 .password(user.getPassword())
-                .authorities(user.getRole().name()) // Use your actual role!
+                .authorities(authorities.toArray(String[]::new))
                 .build();
     }
 }

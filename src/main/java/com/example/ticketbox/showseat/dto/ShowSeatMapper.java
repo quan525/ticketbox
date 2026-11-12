@@ -21,8 +21,20 @@ public interface ShowSeatMapper {
 
     void updateEntity(UpdateShowSeatReq req, @MappingTarget ShowSeat showSeat);
 
-    @org.mapstruct.Mapping(source = "seat.room.id", target = "seat.roomid")
+    @org.mapstruct.Mapping(target = "seat", expression = "java(toSeatResponse(showSeat))")
     ShowSeatRes toResponse(ShowSeat showSeat);
+
+    default com.example.ticketbox.seat.dto.response.SeatResponse toSeatResponse(ShowSeat showSeat) {
+        var seat = showSeat.getSeat();
+        if (seat == null) return null;
+        return com.example.ticketbox.seat.dto.response.SeatResponse.builder()
+                .id(seat.getId())
+                .roomid(seat.getRoom() == null ? null : seat.getRoom().getId())
+                .rowLabel(seat.getRowLabel())
+                .seatNumber(seat.getSeatNumber())
+                .seatType(showSeat.getEffectiveSeatType())
+                .build();
+    }
 
     List<ShowSeatRes> toResponses(List<ShowSeat> showSeat);
 

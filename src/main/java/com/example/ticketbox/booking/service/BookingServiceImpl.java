@@ -35,6 +35,7 @@ public class BookingServiceImpl implements BookingService {
     public Booking createBooking(CreateBookingReq req) {
         Users user = userService.getUserById(req.getUserId());
         Show show = showService.getShowById(req.getShowId());
+        if (show.getMovie().isArchived()) throw new IllegalStateException("This movie is archived and is not accepting reservations");
 
         if (req.getShowSeatIds() == null || req.getShowSeatIds().isEmpty()) {
             throw new IllegalArgumentException("At least one show seat is required");

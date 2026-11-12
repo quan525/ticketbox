@@ -13,6 +13,14 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataConflict(Exception ex) {
+        return ResponseEntity.status(409).body(new ErrorResponse(409, "This change conflicts with an existing record. Refresh and try again."));
+    }
+    @ExceptionHandler(org.springframework.dao.ConcurrencyFailureException.class)
+    public ResponseEntity<ErrorResponse> handleConcurrentChange(Exception ex) {
+        return ResponseEntity.status(409).body(new ErrorResponse(409, "The reservation changed. Refresh and try again."));
+    }
     @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)
     public ResponseEntity<ErrorResponse> handleAuthentication(Exception ex) {
         return ResponseEntity.status(401).body(new ErrorResponse(401, "Incorrect username or password"));

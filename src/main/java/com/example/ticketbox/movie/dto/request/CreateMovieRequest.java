@@ -15,9 +15,11 @@ import lombok.NoArgsConstructor;
 public class CreateMovieRequest {
 
     @NotBlank
+    @jakarta.validation.constraints.Size(max = 255)
     private String title;
 
     @NotBlank
+    @jakarta.validation.constraints.Size(max = 255)
     private String author;
 
     private String description;
@@ -27,6 +29,7 @@ public class CreateMovieRequest {
     private Integer durationMin;
 
     @NotBlank
+    @jakarta.validation.constraints.Size(max = 10)
     @Builder.Default
     private String language = "EN";
 }

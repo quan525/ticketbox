@@ -16,7 +16,7 @@ public class CreateRoomRequest {
     @NotBlank
     String name;
 
-    @NotEmpty
+    @jakarta.validation.constraints.NotNull
     @Positive
     Integer seatRows;
 }

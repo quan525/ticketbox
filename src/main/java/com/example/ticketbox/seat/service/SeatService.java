@@ -21,6 +21,8 @@ public interface SeatService {
             AutoGenerateSeatReq req
     );
 
+    List<Seats> getSeatsByRoomForScheduling(Integer roomId);
+
     List<Seats> getSeatInIds(List<Integer> ids);
 
 //    Seat updateSeatType(Integer seatId, UpdateSeatRequest req);

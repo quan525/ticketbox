@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final com.example.ticketbox.auth.service.RefreshSessions sessions;
     private final com.example.ticketbox.user.repository.UserRepository userRepository;
 
     @GetMapping("/me")
@@ -34,13 +35,30 @@ public class AuthController {
 
 
     @PostMapping("/signup")
-    public AuthResponse signup(@RequestBody @Valid SignupReq req) {
-        return authService.signup(req);
+    public ResponseEntity<AuthResponse> signup(@RequestBody @Valid SignupReq req) {
+        return sessions.start(authService.signup(req));
     }
 
     @PostMapping("/login")
-    public AuthResponse login(@RequestBody @Valid LoginReq req) {
-        return authService.login(req);
+    public ResponseEntity<AuthResponse> login(@RequestBody @Valid LoginReq req) {
+        return sessions.start(authService.login(req));
+    }
+
+    public record SessionRequest(
+            @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 255) String username) {}
+
+    @PostMapping(value = "/refresh", consumes = "application/json")
+    public ResponseEntity<AuthResponse> refresh(
+            @CookieValue(name = com.example.ticketbox.auth.service.RefreshSessions.COOKIE, required = false) String token,
+            @Valid @RequestBody SessionRequest request) {
+        return sessions.refresh(token, request.username());
+    }
+
+    @PostMapping(value = "/logout", consumes = "application/json")
+    public ResponseEntity<Void> logout(
+            @CookieValue(name = com.example.ticketbox.auth.service.RefreshSessions.COOKIE, required = false) String token,
+            @Valid @RequestBody SessionRequest request) {
+        return sessions.logout(token, request.username());
     }
 
     @PostMapping("/validation")

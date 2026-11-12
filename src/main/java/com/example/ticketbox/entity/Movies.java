@@ -30,4 +30,8 @@ public class Movies extends BaseEntity {
 
     @Column(nullable = false, length = 10)
     private String language;
+
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean archived = false;
 }

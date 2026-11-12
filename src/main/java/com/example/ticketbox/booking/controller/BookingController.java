@@ -23,9 +23,9 @@ import java.util.Optional;
 public class BookingController {
     private final com.example.ticketbox.user.repository.UserRepository users;
 
-    private void requireOwner(Integer userId, java.security.Principal principal) {
+    private void requireOwner(Integer userId, java.security.Principal principal, com.example.ticketbox.enums.UserPermission permission) {
         var user = users.findByUsername(principal.getName()).orElseThrow();
-        if (!user.getId().equals(userId) && user.getRole() == com.example.ticketbox.enums.UserRoles.USER) {
+        if (!user.getId().equals(userId) && !user.hasPermission(permission)) {
             throw new org.springframework.security.access.AccessDeniedException("You cannot access this booking");
         }
     }
@@ -38,7 +38,7 @@ public class BookingController {
             @RequestBody @Valid CreateBookingReq request, java.security.Principal principal
 //            @RequestBody Map<String, Object> claims
     ) {
-        requireOwner(request.getUserId(), principal);
+        requireOwner(request.getUserId(), principal, com.example.ticketbox.enums.UserPermission.MANAGE_BOOKINGS);
 //        System.out.println("req2: " + claims);
 //
         Booking booking = bookingService.createBooking(request);
@@ -53,7 +53,7 @@ public class BookingController {
     public ResponseEntity<BookingResponse> getById(
             @PathVariable Long id, java.security.Principal principal
     ) {
-        requireOwner(bookingService.getBooking(id).getUser().getId(), principal);
+        requireOwner(bookingService.getBooking(id).getUser().getId(), principal, com.example.ticketbox.enums.UserPermission.VIEW_BOOKINGS);
         return ResponseEntity.ok(
                 bookingMapper.toResponse(
                         bookingService.getBooking(id)
@@ -65,7 +65,7 @@ public class BookingController {
     public ResponseEntity<List<BookingResponse>> getByUser(
             @PathVariable Integer userId, java.security.Principal principal
     ) {
-        requireOwner(userId, principal);
+        requireOwner(userId, principal, com.example.ticketbox.enums.UserPermission.VIEW_BOOKINGS);
         return ResponseEntity.ok(
                 bookingMapper.toResponses(
                         bookingService.getBookingsByUser(userId)
@@ -77,7 +77,7 @@ public class BookingController {
     public ResponseEntity<BookingResponse> cancel(
             @PathVariable Long id, java.security.Principal principal
     ) {
-        requireOwner(bookingService.getBooking(id).getUser().getId(), principal);
+        requireOwner(bookingService.getBooking(id).getUser().getId(), principal, com.example.ticketbox.enums.UserPermission.MANAGE_BOOKINGS);
         return ResponseEntity.ok(
                 bookingMapper.toResponse(
                         bookingService.cancelBooking(id)

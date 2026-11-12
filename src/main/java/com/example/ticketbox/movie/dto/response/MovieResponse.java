@@ -15,4 +15,5 @@ public class MovieResponse {
     private String description;
     private Integer durationMin;
     private String language;
+    private boolean archived;
 }

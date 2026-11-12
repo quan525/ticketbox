@@ -40,6 +40,14 @@ public class ShowSeat {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "seat_type_at_scheduling")
+    private com.example.ticketbox.enums.SeatType seatTypeAtScheduling;
+
+    public com.example.ticketbox.enums.SeatType getEffectiveSeatType() {
+        return seatTypeAtScheduling != null ? seatTypeAtScheduling : seat.getSeatType();
+    }
+
     private LocalDateTime heldUntil; // lock timeout
 
     @Version

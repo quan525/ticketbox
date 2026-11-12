@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class GoogleAuthController {
     private final GoogleAuthService google;
+    private final com.example.ticketbox.auth.service.RefreshSessions sessions;
 
     public record Configuration(boolean enabled, String clientId) {}
     public record Credential(@NotBlank @Size(max = 16384) String credential) {}
@@ -25,10 +26,8 @@ public class GoogleAuthController {
                 .body(new Configuration(!google.clientId().isBlank(), google.clientId()));
     }
 
-    // Only same-origin JSON requests from the GIS JavaScript callback are accepted.
-    // This endpoint issues a bearer token; it does not set an authentication cookie.
     @PostMapping(consumes = "application/json")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody Credential request) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(google.login(request.credential()));
+        return sessions.start(google.login(request.credential()));
     }
 }

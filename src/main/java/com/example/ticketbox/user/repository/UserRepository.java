@@ -13,6 +13,14 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<Users, Integer> {
 
     Optional<Users> findByUsername(String username);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from Users u where u.role = com.example.ticketbox.enums.UserRoles.ADMIN order by u.id")
+    List<Users> lockAdministrators();
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from Users u where u.id = :id")
+    Optional<Users> findByIdForUpdate(@Param("id") Integer id);
     Optional<Users> findByGoogleSubject(String googleSubject);
 
 

@@ -23,6 +23,7 @@ public class SeatServiceImpl implements SeatService {
     private final SeatRepository seatRepository;
     private final RoomService roomService;
     private final SeatMapper seatMapper;
+    private final com.example.ticketbox.showseat.repository.ShowSeatRepository showSeats;
 
     @Override
     @Transactional
@@ -100,16 +101,30 @@ public class SeatServiceImpl implements SeatService {
     @Transactional
     public Seats updateSeat(Integer seatId, UpdateSeatRequest req) {
 
-        Seats seat = seatRepository.findById(seatId)
-                .orElseThrow(() -> new EntityNotFoundException("Seat not found"));
+        Seats seat = seatRepository.lockByIds(List.of(seatId)).stream()
+                .findFirst().orElseThrow(() -> new EntityNotFoundException("Seat not found"));
 
-        seatMapper.updateEntity(req, seat);
+        if (req.getSeatType() != null && req.getSeatType() != seat.getSeatType()) {
+            for (var showSeat : showSeats.lockByPhysicalSeat(seatId)) {
+                if (showSeat.getSeatTypeAtScheduling() == null) {
+                    showSeat.setSeatTypeAtScheduling(seat.getSeatType());
+                }
+            }
+            seatMapper.updateEntity(req, seat);
+        }
 
         return seat;
     }
 
     @Override
+    @Transactional
+    public List<Seats> getSeatsByRoomForScheduling(Integer roomId) {
+        return seatRepository.lockByRoom(roomId);
+    }
+
+    @Override
+    @Transactional
     public List<Seats> getSeatInIds(List<Integer> ids) {
-        return seatRepository.findAllById(ids);
+        return ids.isEmpty() ? List.of() : seatRepository.lockByIds(ids);
     }
 }

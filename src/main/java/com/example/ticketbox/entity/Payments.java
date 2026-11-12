@@ -48,4 +48,10 @@ public class Payments extends BaseEntity {
 
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
+
+    @Column(name = "checkout_provider", length = 20)
+    private String checkoutProvider;
+
+    @Column(name = "sepay_reference", length = 40, unique = true)
+    private String sepayReference;
 }
