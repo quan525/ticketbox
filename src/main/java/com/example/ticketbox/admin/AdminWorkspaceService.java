@@ -33,6 +33,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.ticketbox.config.TicketboxTime;
+
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -109,6 +111,9 @@ public class AdminWorkspaceService {
 
     @Transactional
     public ShowResponse schedule(AdminRequests.ShowInput input) {
+        if (!input.startTime().isAfter(LocalDateTime.now(TicketboxTime.CINEMA_ZONE))) {
+            throw new IllegalArgumentException("Start time must be in the future (Vietnam time).");
+        }
         var movie = movies.findByIdForUpdate(input.movieId()).orElseThrow(() -> new EntityNotFoundException("Movie not found"));
         entityManager.refresh(movie);
         var show = showService.createShow(CreateShowReq.builder().movieId(input.movieId()).roomId(input.roomId())
@@ -121,7 +126,7 @@ public class AdminWorkspaceService {
     public MovieResponse archive(Integer id, boolean archived) {
         var movie = movies.findByIdForUpdate(id).orElseThrow(() -> new EntityNotFoundException("Movie not found"));
         entityManager.refresh(movie);
-        if (archived && shows.existsByMovieIdAndEndTimeAfter(id, LocalDateTime.now())) {
+        if (archived && shows.existsByMovieIdAndEndTimeAfter(id, LocalDateTime.now(TicketboxTime.CINEMA_ZONE))) {
             throw new IllegalStateException("This movie still has scheduled screenings. Archive it after its final screening.");
         }
         movie.setArchived(archived);

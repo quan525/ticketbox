@@ -1,4 +1,4 @@
-import { dateKey } from './model.js';
+import { dateKey, time } from './model.js';
 
 export const permissionModules = [
   { id: 'movies', name: 'Movies', view: 'VIEW_MOVIES', manage: 'MANAGE_MOVIES', detail: 'View the catalog; add, edit, archive and restore movies.' },
@@ -35,5 +35,5 @@ export function adminMetrics(data, now = new Date()) {
 export const matchesSearch = (query, ...values) => !query.trim() || values.some(value => String(value || '').toLowerCase().includes(query.trim().toLowerCase()));
 export const labelStatus = value => ({ PENDING: 'Pending', CONFIRMED: 'Confirmed', CANCELLED: 'Cancelled', EXPIRED: 'Expired', PAID: 'Paid', AVAILABLE: 'Available', ADMIN: 'Admin', MODERATOR: 'Employee', USER: 'Customer' })[value] || value;
 export function localDateTime(date = new Date()) {
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  return `${dateKey(date)}T${time(date)}`;
 }

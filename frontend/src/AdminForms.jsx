@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { AlertCircle, ArrowRight, Armchair, Check, ShieldCheck } from 'lucide-react';
 import { Dialog } from './components.jsx';
 import { request } from './api.js';
-import { dayLabel, groupSeats, money, time } from './model.js';
+import { cinemaDate, dateKey, dayLabel, groupSeats, money, time } from './model.js';
 import { bookingState, labelStatus, localDateTime, permissionModules, hasPermission } from './adminModel.js';
 
 export function RoomSeatPreview({ room, token, onClose, canManage, onChanged }) {
@@ -109,11 +109,11 @@ const titles = { 'add-employee': 'Add employee', movie: 'Movie details', room: '
 
 export default function AdminEditor({ editor, data, session, onClose, onSave }) {
   const { kind, item } = editor;
-  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(18, 30, 0, 0);
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const [values, setValues] = useState(() => ({
     title: item?.title || '', author: item?.author || '', description: item?.description || '', duration_min: item?.duration_min || 110, language: item?.language || 'EN',
     name: '', rows: 6, seats_per_row: 10, seat_type: 'STANDARD',
-    movie_id: data.movies.find(movie => !movie.archived)?.id || '', room_id: data.rooms.find(room => room.seat_count > 0)?.id || '', start_time: localDateTime(tomorrow),
+    movie_id: data.movies.find(movie => !movie.archived)?.id || '', room_id: data.rooms.find(room => room.seat_count > 0)?.id || '', start_time: `${dateKey(tomorrow)}T18:30`,
     employee_id: data.users[0]?.id || '', transaction_id: '', verified: false, role: item?.role || 'USER', use_role_defaults: !item?.custom_permissions, permissions: item?.permissions || [],
   }));
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
@@ -122,7 +122,7 @@ export default function AdminEditor({ editor, data, session, onClose, onSave }) 
   const relatedBooking = kind.includes('payment') ? data.bookings.find(booking => booking.id === item.booking_id) : kind === 'booking' ? item : null;
   const customer = relatedBooking ? data.users.find(user => user.id === relatedBooking.user_id) : kind === 'customer' ? item : null;
   const selectedMovie = data.movies.find(movie => movie.id === Number(values.movie_id));
-  const end = selectedMovie && values.start_time ? new Date(new Date(values.start_time).getTime() + selectedMovie.duration_min * 60000) : null;
+  const end = selectedMovie && values.start_time ? new Date(cinemaDate(values.start_time).getTime() + selectedMovie.duration_min * 60000) : null;
   const readOnly = ['booking', 'customer'].includes(kind);
 
   async function submit(event) {
@@ -148,7 +148,7 @@ export default function AdminEditor({ editor, data, session, onClose, onSave }) 
     <form className="admin-form" onSubmit={submit}>
       {kind === 'movie' && <><div className="admin-form-grid">{field('title', 'Movie title', { required: true, maxLength: 255 })}{field('author', 'Director', { required: true, maxLength: 255 })}{field('duration_min', 'Runtime (minutes)', { required: true, type: 'number', min: 1, max: 600 })}{field('language', 'Language code', { required: true, maxLength: 10, placeholder: 'EN, VI, JA…' })}</div><label>Synopsis<textarea name="description" rows={4} value={values.description} onChange={event => setValues(previous => ({ ...previous, description: event.target.value }))} /></label><p className="admin-form-hint">New movies appear under Coming soon until you schedule a screening.</p></>}
       {kind === 'room' && <>{field('name', 'Room name', { required: true, maxLength: 100, placeholder: 'Screen 02' })}<div className="admin-form-grid">{field('rows', 'Rows', { required: true, type: 'number', min: 1, max: 26 })}{field('seats_per_row', 'Seats per row', { required: true, type: 'number', min: 1, max: 30 })}</div>{select('seat_type', 'Seat category', [['STANDARD', 'Standard'], ['VIP', 'VIP']])}<div className="admin-info-banner"><Armchair size={19} /><span>{Number(values.rows) * Number(values.seats_per_row)} seats will be created with this room.</span></div></>}
-      {kind === 'show' && <>{select('movie_id', 'Movie', data.movies.filter(movie => !movie.archived).map(movie => [movie.id, `${movie.title} · ${movie.duration_min} min`]))}{select('room_id', 'Room', data.rooms.filter(room => room.seat_count > 0).map(room => [room.id, `${room.name} · ${room.seat_count} seats`]))}{field('start_time', 'Start date and time', { required: true, type: 'datetime-local', min: localDateTime() })}<div className="admin-info-banner"><ClockNote /><span>{end ? `Ends ${dayLabel(end)} at ${time(end)}. Seats and standard prices are created automatically.` : 'Choose a movie and start time.'}</span></div>{!values.room_id && <p className="inline-error">Create a room with seats first.</p>}<p className="admin-form-hint">The server checks room conflicts before saving. All seats must be created successfully for the screening to be published.</p></>}
+      {kind === 'show' && <>{select('movie_id', 'Movie', data.movies.filter(movie => !movie.archived).map(movie => [movie.id, `${movie.title} · ${movie.duration_min} min`]))}{select('room_id', 'Room', data.rooms.filter(room => room.seat_count > 0).map(room => [room.id, `${room.name} · ${room.seat_count} seats`]))}{field('start_time', 'Start date and time (Vietnam time)', { required: true, type: 'datetime-local', min: localDateTime() })}<div className="admin-info-banner"><ClockNote /><span>{end ? `Ends ${dayLabel(end)} at ${time(end)}. Seats and standard prices are created automatically.` : 'Choose a movie and start time.'}</span></div>{!values.room_id && <p className="inline-error">Create a room with seats first.</p>}<p className="admin-form-hint">The server checks room conflicts before saving. All seats must be created successfully for the screening to be published.</p></>}
       {kind === 'payment' && <><div className="admin-review-summary"><strong>{money(item.amount)}</strong><p>Payment #{item.id} · Booking #{item.booking_id}</p><p>{relatedBooking?.movie_title} · {customer?.username || 'Customer'}</p></div><p className="admin-warning"><AlertCircle size={18} />Only confirm after matching the actual bank transaction, amount, and reference. Viewing or scanning the sample QR is not payment evidence.</p>{field('transaction_id', 'Bank transaction ID', { required: true, maxLength: 100, placeholder: 'Verified transfer reference' })}<label className="admin-checkbox"><input type="checkbox" required checked={values.verified} onChange={event => setValues(previous => ({ ...previous, verified: event.target.checked }))} /><span>I have verified the received amount and transfer reference against the bank record.</span></label></>}
       {kind === 'cancel-payment' && <><p>Reject payment request <strong>#{item.id}</strong> for <strong>{money(item.amount)}</strong>?</p><p className="admin-form-hint">The reservation stays held until its existing expiry time so the customer can make another payment attempt.</p></>}
       {kind === 'cancel-booking' && <><p>Cancel reservation <strong>#{item.id}</strong> for <strong>{item.movie_title}</strong>?</p><p className="admin-form-hint">Seats {item.seats.join(', ')} will be released, and pending payment requests will be cancelled. Confirmed bookings cannot be cancelled here.</p></>}

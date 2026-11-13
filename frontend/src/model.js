@@ -1,15 +1,22 @@
 export const money = value => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);
-export const time = value => value ? new Date(value).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Time to be announced';
-export const dayLabel = value => value ? new Date(value).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be announced';
+const cinemaZone = 'Asia/Ho_Chi_Minh';
+const cinemaDateFormat = new Intl.DateTimeFormat('sv-SE', { timeZone: cinemaZone, year: 'numeric', month: '2-digit', day: '2-digit' });
+
+export function cinemaDate(value) {
+  const localTime = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(value);
+  return new Date(localTime ? value + '+07:00' : value);
+}
+
+export const time = value => value ? cinemaDate(value).toLocaleTimeString('en-GB', { timeZone: cinemaZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }) : 'Time to be announced';
+export const dayLabel = value => value ? cinemaDate(value).toLocaleDateString('en-GB', { timeZone: cinemaZone, weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be announced';
 export const dateKey = value => {
   if (!value) return '';
-  const date = new Date(value);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return cinemaDateFormat.format(cinemaDate(value));
 };
 
 export function upcomingShows(shows, now = Date.now()) {
-  return shows.filter(show => show.start_time && new Date(show.start_time).getTime() > now)
-    .sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+  return shows.filter(show => show.start_time && cinemaDate(show.start_time).getTime() > now)
+    .sort((a, b) => cinemaDate(a.start_time) - cinemaDate(b.start_time));
 }
 
 export function filterMovies(movies, shows, { query = '', language = 'all', date = 'all', tab = 'showing', saved = [] } = {}) {
