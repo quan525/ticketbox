@@ -1,4 +1,4 @@
-import { dateKey, time } from './model.js';
+import { venueDateKey, venueTime } from './model.js';
 
 export const permissionModules = [
   { id: 'movies', name: 'Movies', view: 'VIEW_MOVIES', manage: 'MANAGE_MOVIES', detail: 'View the catalog; add, edit, archive and restore movies.' },
@@ -21,11 +21,11 @@ export function bookingState(booking, now = Date.now()) {
 export const canReview = (payment, bookings, now = Date.now()) => payment.status === 'PENDING' &&
   bookings.some(booking => booking.id === payment.booking_id && bookingState(booking, now) === 'PENDING' && new Date(booking.expires_at).getTime() > now);
 export function adminMetrics(data, now = new Date()) {
-  const today = dateKey(now);
+  const today = venueDateKey(now);
   const paid = data.payments.filter(payment => payment.status === 'PAID');
   const verified = paid.filter(payment => !isDemoPayment(payment));
   return {
-    todayShows: data.shows.filter(show => dateKey(show.start_time) === today).length,
+    todayShows: data.shows.filter(show => venueDateKey(show.start_time) === today).length,
     activeHolds: data.bookings.filter(booking => bookingState(booking, now.getTime()) === 'PENDING').length,
     verifiedRevenue: verified.reduce((sum, payment) => sum + Number(payment.amount), 0),
     pendingReview: data.payments.filter(payment => canReviewPayment(payment, data)).length,
@@ -35,5 +35,5 @@ export function adminMetrics(data, now = new Date()) {
 export const matchesSearch = (query, ...values) => !query.trim() || values.some(value => String(value || '').toLowerCase().includes(query.trim().toLowerCase()));
 export const labelStatus = value => ({ PENDING: 'Pending', CONFIRMED: 'Confirmed', CANCELLED: 'Cancelled', EXPIRED: 'Expired', PAID: 'Paid', AVAILABLE: 'Available', ADMIN: 'Admin', MODERATOR: 'Employee', USER: 'Customer' })[value] || value;
 export function localDateTime(date = new Date()) {
-  return `${dateKey(date)}T${time(date)}`;
+  return `${venueDateKey(date)}T${venueTime(date)}`;
 }

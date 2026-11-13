@@ -1,18 +1,26 @@
 export const money = value => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);
-const cinemaZone = 'Asia/Ho_Chi_Minh';
-const cinemaDateFormat = new Intl.DateTimeFormat('sv-SE', { timeZone: cinemaZone, year: 'numeric', month: '2-digit', day: '2-digit' });
+export const cinemaZone = 'Asia/Ho_Chi_Minh';
+export const viewerZone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
+const dayOptions = { weekday: 'short', day: 'numeric', month: 'short' };
+const dateOptions = { year: 'numeric', month: '2-digit', day: '2-digit' };
 
 export function cinemaDate(value) {
   const localTime = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(value);
   return new Date(localTime ? value + '+07:00' : value);
 }
 
-export const time = value => value ? cinemaDate(value).toLocaleTimeString('en-GB', { timeZone: cinemaZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }) : 'Time to be announced';
-export const dayLabel = value => value ? cinemaDate(value).toLocaleDateString('en-GB', { timeZone: cinemaZone, weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be announced';
-export const dateKey = value => {
+export const time = (value, timeZone = viewerZone) => value ? cinemaDate(value).toLocaleTimeString('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }) : 'Time to be announced';
+export const dayLabel = (value, timeZone = viewerZone) => value ? cinemaDate(value).toLocaleDateString('en-GB', { ...dayOptions, timeZone }) : 'Date to be announced';
+export const calendarDayLabel = date => new Date(date + 'T00:00:00Z').toLocaleDateString('en-GB', { ...dayOptions, timeZone: 'UTC' });
+
+export const dateKey = (value, timeZone = viewerZone) => {
   if (!value) return '';
-  return cinemaDateFormat.format(cinemaDate(value));
+  return cinemaDate(value).toLocaleDateString('sv-SE', { ...dateOptions, timeZone });
 };
+
+export const venueDateKey = value => dateKey(value, cinemaZone);
+export const venueTime = value => time(value, cinemaZone);
+export const venueDayLabel = value => dayLabel(value, cinemaZone);
 
 export function upcomingShows(shows, now = Date.now()) {
   return shows.filter(show => show.start_time && cinemaDate(show.start_time).getTime() > now)
