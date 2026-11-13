@@ -71,7 +71,7 @@ public class ShowSeatServiceImpl implements ShowSeatService {
 
         var seats = showSeatRepository.findByShowIdForUpdate(showId);
         seats.forEach(entityManager::refresh);
-        var now = java.time.LocalDateTime.now();
+        var now = java.time.Instant.now();
         seats.forEach(seat -> {
             if (seat.getStatus() == SeatStatus.PENDING && seat.getHeldUntil() != null && !seat.getHeldUntil().isAfter(now)) {
                 seat.setStatus(SeatStatus.AVAILABLE);

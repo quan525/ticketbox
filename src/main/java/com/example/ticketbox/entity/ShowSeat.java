@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(
@@ -48,7 +48,7 @@ public class ShowSeat {
         return seatTypeAtScheduling != null ? seatTypeAtScheduling : seat.getSeatType();
     }
 
-    private LocalDateTime heldUntil; // lock timeout
+    private Instant heldUntil; // lock timeout
 
     @Version
     private Long version; // optimistic locking

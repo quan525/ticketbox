@@ -18,6 +18,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -175,7 +176,7 @@ public class PaymentServiceImpl implements PaymentService {
         if (booking.getStatus() != BookingStatus.PENDING) {
             throw new IllegalStateException("Only pending bookings can be paid");
         }
-        if (booking.getExpiresAt() != null && !booking.getExpiresAt().isAfter(LocalDateTime.now())) {
+        if (booking.getExpiresAt() != null && !booking.getExpiresAt().isAfter(Instant.now())) {
             throw new IllegalStateException("Booking has expired");
         }
     }

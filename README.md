@@ -101,3 +101,13 @@ docker run -d --name ticketbox-redis -p 127.0.0.1:6379:6379 -v ticketbox-redis-d
 ```
 
 For a hosted deployment, set `TICKETBOX_REDIS_URL` through the host's private settings and use HTTPS. `REFRESH_TOKEN_TTL` defaults to `14d`. Secure cookies are enabled by default. The local profile allows HTTP on localhost. Sign in again after upgrading to obtain a refresh cookie.
+
+### Upgrade existing PostgreSQL reservation deadlines
+
+Before starting the version that uses Java `Instant`, pause booking traffic, stop the old app, and back up the database. Run the migration against the application schema with `psql` connected using your usual secure configuration:
+
+```sh
+psql -v legacy_zone='<previous JVM timezone>' -f src/main/resources/db/reservation-deadlines-timestamptz.sql
+```
+
+Use `UTC` if the old backend wrote these timestamps in UTC, or `Asia/Ho_Chi_Minh` if it wrote them in Vietnam time. The migration converts both deadline columns in one transaction and skips columns already converted. Start the updated app after the migration commits. Fresh PostgreSQL databases created by Hibernate already use the new types. The SQL script is PostgreSQL-specific.

@@ -71,7 +71,7 @@ class MockPaymentServiceTest {
     }
     @Test void expiredReservationCannotBePaid() {
         var payment = payment();
-        payment.getBooking().setExpiresAt(java.time.LocalDateTime.now().minusMinutes(1)); em.flush();
+        payment.getBooking().setExpiresAt(java.time.Instant.now().minusSeconds(60)); em.flush();
         assertThatThrownBy(() -> mock.confirm(payment.getId(), payment.getBooking().getUser().getUsername(), MockPaymentService.Outcome.SUCCESS)).isInstanceOf(IllegalStateException.class);
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PENDING);
     }
