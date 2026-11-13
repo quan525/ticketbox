@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { X, ArrowUpRight, Bookmark, Check, Film, Ticket } from 'lucide-react';
-import { money, time, dayLabel, seatLabel, secondsRemaining } from './model.js';
+import { bookedAtLabel, money, time, dayLabel, seatLabel, secondsRemaining, viewerZone } from './model.js';
 
 const artwork = {
   'The Last Orbit': 'orbit',
@@ -65,7 +65,7 @@ export function BookingCard({ booking, onCancel, onResume, busy }) {
   const status = expired ? 'EXPIRED' : booking.status;
   return <article className="booking-card">
     <div className="booking-icon"><Ticket size={28} /></div>
-    <div className="booking-card-info"><span className="eyebrow">BOOKING #{String(booking.id).padStart(5, '0')}</span><h3>{booking.movie_title}</h3><p>{dayLabel(booking.start_time)} at {time(booking.start_time)} · {booking.room_name}</p><p>Seats {booking.seats?.join(', ') || '—'}</p></div>
+    <div className="booking-card-info"><span className="eyebrow">BOOKING #{String(booking.id).padStart(5, '0')}</span><h3>{booking.movie_title}</h3><p>{dayLabel(booking.start_time)} at {time(booking.start_time)} · {booking.room_name}</p><p>Seats {booking.seats?.join(', ') || '—'}</p><p>Booked at ({viewerZone}): {bookedAtLabel(booking.created_at)}</p></div>
     <div className="booking-card-end"><span className={`status status-${status.toLowerCase()}`}>{status === 'PENDING' ? 'Awaiting payment' : status.toLowerCase()}</span><strong>{money(booking.total_price)}</strong>{status === 'PENDING' && <div className="booking-actions"><button className="text-button" disabled={busy} onClick={() => onResume(booking)}>Payment options</button><button className="text-button muted" disabled={busy} onClick={() => onCancel(booking)}>Cancel booking</button></div>}</div>
   </article>;
 }

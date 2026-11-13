@@ -11,6 +11,25 @@ export function cinemaDate(value) {
 
 export const time = (value, timeZone = viewerZone) => value ? cinemaDate(value).toLocaleTimeString('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }) : 'Time to be announced';
 export const dayLabel = (value, timeZone = viewerZone) => value ? cinemaDate(value).toLocaleDateString('en-GB', { ...dayOptions, timeZone }) : 'Date to be announced';
+const bookingDateFormat = new Intl.DateTimeFormat('en-GB', {
+  timeZone: viewerZone,
+  dateStyle: 'long',
+  timeStyle: 'short',
+});
+
+const venueBookingDateFormat = new Intl.DateTimeFormat('en-GB', {
+  timeZone: cinemaZone,
+  dateStyle: 'long',
+  timeStyle: 'short',
+});
+
+export function bookedAtLabel(value, { venue = false } = {}) {
+  if (!value) return 'Unavailable';
+  const bookedAt = new Date(value);
+  if (Number.isNaN(bookedAt.getTime())) return 'Unavailable';
+  return (venue ? venueBookingDateFormat : bookingDateFormat).format(bookedAt);
+}
+
 export const calendarDayLabel = date => new Date(date + 'T00:00:00Z').toLocaleDateString('en-GB', { ...dayOptions, timeZone: 'UTC' });
 
 export const dateKey = (value, timeZone = viewerZone) => {
