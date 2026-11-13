@@ -21,6 +21,7 @@ public class BookingResponse {
     private Integer showId;
     private BookingStatus status;
     private BigDecimal totalPrice;
+    private Instant createdAt;
     private Instant expiresAt;
     private String movieTitle;
     private String roomName;
