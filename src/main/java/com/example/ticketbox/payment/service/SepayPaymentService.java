@@ -11,6 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
+import com.example.ticketbox.config.TicketboxTime;
+
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -25,7 +28,7 @@ public class SepayPaymentService {
     private final EntityManager entityManager;
 
     public record Checkout(Long paymentId, String provider, boolean demo, String reference,
-        BigDecimal amount, String currency, LocalDateTime expiresAt, String bank, String accountNo,
+        BigDecimal amount, String currency, Instant expiresAt, String bank, String accountNo,
         String accountName, String qrImageUrl) {}
 
     @Transactional
@@ -46,7 +49,7 @@ public class SepayPaymentService {
         String account = settings.getSubAccount().isBlank() ? settings.getAccountNumber() : settings.getSubAccount();
         String qr = settings.demo() ? null : SepayQrImage.forPayment(settings.getBank(), account, settings.getAccountName(), payment.getAmount(), payment.getSepayReference());
         return new Checkout(payment.getId(), settings.provider(), settings.demo(), payment.getSepayReference(),
-            payment.getAmount(), "VND", payment.getBooking().getExpiresAt(), settings.getBank(), account, settings.getAccountName(), qr);
+            payment.getAmount(), "VND", TicketboxTime.reservationDeadline(payment.getBooking().getExpiresAt()), settings.getBank(), account, settings.getAccountName(), qr);
     }
 
     @Transactional

@@ -6,7 +6,7 @@ import com.example.ticketbox.enums.SeatStatus;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Getter
 @Setter
@@ -24,5 +24,5 @@ public class ShowSeatRes {
 
     private BigDecimal price;
 
-    private LocalDateTime heldUntil;
+    private Instant heldUntil;
 }

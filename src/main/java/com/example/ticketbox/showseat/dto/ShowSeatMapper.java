@@ -1,5 +1,6 @@
 package com.example.ticketbox.showseat.dto;
 
+import com.example.ticketbox.config.TicketboxTime;
 import com.example.ticketbox.entity.ShowSeat;
 import com.example.ticketbox.showseat.dto.request.CreateShowSeatReq;
 import com.example.ticketbox.showseat.dto.request.UpdateShowSeatReq;
@@ -34,6 +35,10 @@ public interface ShowSeatMapper {
                 .seatNumber(seat.getSeatNumber())
                 .seatType(showSeat.getEffectiveSeatType())
                 .build();
+    }
+
+    default java.time.Instant toReservationDeadline(java.time.LocalDateTime deadline) {
+        return TicketboxTime.reservationDeadline(deadline);
     }
 
     List<ShowSeatRes> toResponses(List<ShowSeat> showSeat);

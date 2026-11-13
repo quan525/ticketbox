@@ -3,6 +3,7 @@ package com.example.ticketbox.booking.dto;
 import com.example.ticketbox.booking.dto.request.CreateBookingReq;
 import com.example.ticketbox.booking.dto.request.UpdateBookingReq;
 import com.example.ticketbox.booking.dto.response.BookingResponse;
+import com.example.ticketbox.config.TicketboxTime;
 import com.example.ticketbox.entity.Booking;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -18,8 +19,6 @@ public interface BookingMapper {
     @Mapping(source = "showId", target = "show.id")
     Booking toEntity(CreateBookingReq req);
 
-//    List<Booking> toEntities()
-
     void update(UpdateBookingReq req, @MappingTarget Booking booking);
 
     @Mapping(source = "user.id", target = "userId")
@@ -29,6 +28,10 @@ public interface BookingMapper {
     @Mapping(source = "show.startTime", target = "startTime")
     @Mapping(target = "seats", expression = "java(booking.getBookingSeats().stream().map(bs -> bs.getShowSeat().getSeat().getRowLabel() + bs.getShowSeat().getSeat().getSeatNumber()).toList())")
     BookingResponse toResponse(Booking booking);
+
+    default java.time.Instant toReservationDeadline(java.time.LocalDateTime deadline) {
+        return TicketboxTime.reservationDeadline(deadline);
+    }
 
     List<BookingResponse> toResponses(List<Booking> bookings);
 }

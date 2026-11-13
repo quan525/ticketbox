@@ -9,6 +9,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
+import com.example.ticketbox.config.TicketboxTime;
+
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 /** Local simulation with a plain-text QR. */
@@ -31,7 +34,7 @@ public class MockPaymentService {
 
     public boolean enabled() { return enabled && !sepay.isEnabled(); }
     public record Checkout(Long paymentId, String reference, BigDecimal amount, String currency,
-                           LocalDateTime expiresAt, String qrPayload, boolean demo,
+                           Instant expiresAt, String qrPayload, boolean demo,
                            String bankBin, String accountNo, String accountName, String qrImageUrl, boolean paymentDetailsIncluded) {}
 
     @Transactional
@@ -43,7 +46,7 @@ public class MockPaymentService {
         requirePending(payment);
         String reference = "TBTEST" + payment.getId();
         return new Checkout(payment.getId(), reference, payment.getAmount(), "VND",
-                payment.getBooking().getExpiresAt(), "Ticketbox demo " + reference, true,
+                TicketboxTime.reservationDeadline(payment.getBooking().getExpiresAt()), "Ticketbox demo " + reference, true,
                 null, null, null, null, false);
     }
 
