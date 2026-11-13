@@ -11,10 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
-import com.example.ticketbox.config.TicketboxTime;
-
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -36,7 +33,7 @@ public class SepayPaymentService {
         if (!settings.isEnabled()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "SePay is disabled");
         var payment = payments.lockOwnedPayment(id, username);
         if (payment.getStatus() != PaymentStatus.PENDING || payment.getBooking().getStatus() != BookingStatus.PENDING
-                || payment.getBooking().getExpiresAt() == null || !payment.getBooking().getExpiresAt().isAfter(LocalDateTime.now()))
+                || payment.getBooking().getExpiresAt() == null || !payment.getBooking().getExpiresAt().isAfter(Instant.now()))
             throw new IllegalStateException("Reservation is no longer payable");
         if (payment.getCheckoutProvider() != null && !settings.provider().equals(payment.getCheckoutProvider()))
             throw new IllegalStateException("Payment belongs to another provider or SePay environment");
@@ -49,7 +46,7 @@ public class SepayPaymentService {
         String account = settings.getSubAccount().isBlank() ? settings.getAccountNumber() : settings.getSubAccount();
         String qr = settings.demo() ? null : SepayQrImage.forPayment(settings.getBank(), account, settings.getAccountName(), payment.getAmount(), payment.getSepayReference());
         return new Checkout(payment.getId(), settings.provider(), settings.demo(), payment.getSepayReference(),
-            payment.getAmount(), "VND", TicketboxTime.reservationDeadline(payment.getBooking().getExpiresAt()), settings.getBank(), account, settings.getAccountName(), qr);
+            payment.getAmount(), "VND", payment.getBooking().getExpiresAt(), settings.getBank(), account, settings.getAccountName(), qr);
     }
 
     @Transactional
@@ -97,7 +94,7 @@ public class SepayPaymentService {
                     else if (payload.transferAmount().compareTo(payment.getAmount()) != 0) event.setOutcome("AMOUNT_MISMATCH");
                     else if (payment.getStatus() != PaymentStatus.PENDING || payment.getBooking().getStatus() != BookingStatus.PENDING)
                         event.setOutcome("PAYMENT_NOT_PENDING");
-                    else if (payment.getBooking().getExpiresAt() == null || !payment.getBooking().getExpiresAt().isAfter(LocalDateTime.now()))
+                    else if (payment.getBooking().getExpiresAt() == null || !payment.getBooking().getExpiresAt().isAfter(Instant.now()))
                         event.setOutcome("LATE_TRANSFER");
                     else {
                         // Persist deduplication in the same transaction as the payment and seat changes.

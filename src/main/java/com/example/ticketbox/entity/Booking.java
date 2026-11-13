@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,7 +38,7 @@ public class Booking extends BaseEntity {
     @Column(nullable = false, precision = 10, scale = 2, name = "total_price")
     private BigDecimal totalPrice;
 
-    private LocalDateTime expiresAt;
+    private Instant expiresAt;
 
     @Builder.Default
     @OneToMany(

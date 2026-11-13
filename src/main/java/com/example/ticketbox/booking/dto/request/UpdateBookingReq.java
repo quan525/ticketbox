@@ -8,7 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Builder
 @Getter
@@ -21,5 +21,5 @@ public class UpdateBookingReq {
 
     private BigDecimal totalPrice;
 
-    private LocalDateTime expiresAt;
+    private Instant expiresAt;
 }

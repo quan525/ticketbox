@@ -14,7 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
@@ -61,7 +62,7 @@ public class BookingServiceImpl implements BookingService {
 
         boolean hasUnavailableSeat = showSeats.stream()
                 .peek(showSeat -> {
-                    if (showSeat.getStatus() == com.example.ticketbox.enums.SeatStatus.PENDING && showSeat.getHeldUntil() != null && showSeat.getHeldUntil().isBefore(LocalDateTime.now())) {
+                    if (showSeat.getStatus() == com.example.ticketbox.enums.SeatStatus.PENDING && showSeat.getHeldUntil() != null && !showSeat.getHeldUntil().isAfter(Instant.now())) {
                         showSeat.setStatus(com.example.ticketbox.enums.SeatStatus.AVAILABLE);
                         showSeat.setHeldUntil(null);
                     }
@@ -76,7 +77,7 @@ public class BookingServiceImpl implements BookingService {
         booking.setUser(user);
         booking.setShow(show);
         booking.setStatus(BookingStatus.PENDING);
-        booking.setExpiresAt(LocalDateTime.now().plusMinutes(10));
+        booking.setExpiresAt(Instant.now().truncatedTo(ChronoUnit.MICROS).plus(10, ChronoUnit.MINUTES));
 
         for (ShowSeat ss : showSeats) {
             ss.setStatus(com.example.ticketbox.enums.SeatStatus.PENDING);

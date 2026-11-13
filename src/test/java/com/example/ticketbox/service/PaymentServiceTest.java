@@ -134,7 +134,7 @@ class PaymentServiceTest {
     @Test
     void createPayment_rejectsExpiredBooking() {
         Booking booking = createBooking();
-        booking.setExpiresAt(LocalDateTime.now().minusSeconds(1));
+        booking.setExpiresAt(java.time.Instant.now().minusSeconds(1));
         bookingRepository.save(booking);
 
         IllegalStateException exception = assertThrows(

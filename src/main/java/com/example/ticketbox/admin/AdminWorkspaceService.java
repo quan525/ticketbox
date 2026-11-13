@@ -35,6 +35,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.example.ticketbox.config.TicketboxTime;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -71,6 +72,7 @@ public class AdminWorkspaceService {
         var actor = users.findByUsername(actorName).orElseThrow(() -> new AccessDeniedException("Account not found"));
         if (!actor.hasPermission(VIEW_OPERATIONS)) throw new AccessDeniedException("No module access");
         var now = LocalDateTime.now();
+        var deadlineNow = Instant.now();
         Map<Integer, Long> roomCounts = new HashMap<>();
         seats.findAll().forEach(seat -> roomCounts.merge(seat.getRoom().getId(), 1L, Long::sum));
         Map<Integer, long[]> counts = new HashMap<>();
@@ -78,15 +80,14 @@ public class AdminWorkspaceService {
             var count = counts.computeIfAbsent(seat.getShow().getId(), id -> new long[4]);
             count[0]++;
             if (seat.getStatus() == SeatStatus.AVAILABLE || (seat.getStatus() == SeatStatus.PENDING
-                    && seat.getHeldUntil() != null && !seat.getHeldUntil().isAfter(now))) count[1]++;
+                    && seat.getHeldUntil() != null && !seat.getHeldUntil().isAfter(deadlineNow))) count[1]++;
             else if (seat.getStatus() == SeatStatus.PENDING) count[2]++;
             else if (seat.getStatus() == SeatStatus.BOOKED) count[3]++;
         });
         var allPayments = actor.hasPermission(VIEW_PAYMENTS) ? payments.findAll() : List.<com.example.ticketbox.entity.Payments>of();
-        var nowTime = LocalDateTime.now();
         var reviewable = allPayments.stream().filter(payment -> payment.getStatus() == com.example.ticketbox.enums.PaymentStatus.PENDING
                 && payment.getBooking().getStatus() == com.example.ticketbox.enums.BookingStatus.PENDING
-                && payment.getBooking().getExpiresAt() != null && payment.getBooking().getExpiresAt().isAfter(nowTime))
+                && payment.getBooking().getExpiresAt() != null && payment.getBooking().getExpiresAt().isAfter(deadlineNow))
                 .map(com.example.ticketbox.entity.Payments::getId).toList();
         var accounts = actor.hasPermission(VIEW_CUSTOMERS) || actor.getRole() == UserRoles.ADMIN ? users.findAll() : List.<com.example.ticketbox.entity.Users>of();
         return new Workspace(movieMapper.toResponses(actor.hasPermission(VIEW_MOVIES) ? movies.findAll()

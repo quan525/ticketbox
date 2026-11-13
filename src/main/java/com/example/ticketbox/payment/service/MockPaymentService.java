@@ -9,10 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
-import com.example.ticketbox.config.TicketboxTime;
-
 import java.time.Instant;
-import java.time.LocalDateTime;
 
 /** Local simulation with a plain-text QR. */
 @Service
@@ -46,7 +43,7 @@ public class MockPaymentService {
         requirePending(payment);
         String reference = "TBTEST" + payment.getId();
         return new Checkout(payment.getId(), reference, payment.getAmount(), "VND",
-                TicketboxTime.reservationDeadline(payment.getBooking().getExpiresAt()), "Ticketbox demo " + reference, true,
+                payment.getBooking().getExpiresAt(), "Ticketbox demo " + reference, true,
                 null, null, null, null, false);
     }
 
@@ -77,7 +74,7 @@ public class MockPaymentService {
         if (payment.getStatus() != PaymentStatus.PENDING || payment.getBooking().getStatus() != BookingStatus.PENDING) {
             throw new IllegalStateException("Only pending reservations can use demo checkout");
         }
-        if (payment.getBooking().getExpiresAt() == null || !payment.getBooking().getExpiresAt().isAfter(LocalDateTime.now())) {
+        if (payment.getBooking().getExpiresAt() == null || !payment.getBooking().getExpiresAt().isAfter(Instant.now())) {
             throw new IllegalStateException("Booking has expired");
         }
     }

@@ -176,7 +176,7 @@ class BookingServiceTest {
 
     @Test void expiredHoldsBecomeAvailableWhenLoadingSeatMap() {
         var booking = bookingService.createBooking(buildCreateBookingReq());
-        booking.getBookingSeats().forEach(seat -> seat.getShowSeat().setHeldUntil(java.time.LocalDateTime.now().minusSeconds(1)));
+        booking.getBookingSeats().forEach(seat -> seat.getShowSeat().setHeldUntil(java.time.Instant.now().minusSeconds(1)));
         var seats = showSeatService.getShowSeatsByShowId(booking.getShow().getId());
         assertTrue(seats.stream().allMatch(seat -> seat.getStatus() == com.example.ticketbox.enums.SeatStatus.AVAILABLE));
     }
@@ -184,7 +184,7 @@ class BookingServiceTest {
     @Test void cancellingAnOldBookingDoesNotReleaseANewerHold() {
         var req = buildCreateBookingReq();
         var oldBooking = bookingService.createBooking(req);
-        oldBooking.setExpiresAt(java.time.LocalDateTime.now().minusMinutes(1));
+        oldBooking.setExpiresAt(java.time.Instant.now().minusSeconds(60));
         oldBooking.getBookingSeats().forEach(seat -> seat.getShowSeat().setHeldUntil(oldBooking.getExpiresAt()));
         showSeatService.getShowSeatsByShowId(oldBooking.getShow().getId());
         var newBooking = bookingService.createBooking(req);
